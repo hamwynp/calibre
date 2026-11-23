@@ -26,7 +26,6 @@ export interface StripItem {
   rank: number;
 }
 
-const MIN_LEN = 0.45; // hours; keeps tiny items tall enough to read
 
 const isDateOnly = (d: Date): boolean => d.getHours() === 0 && d.getMinutes() === 0;
 
@@ -36,6 +35,8 @@ export function timedItems(
   day: Date,
   colorOf: (ev: CalEvent) => string,
   fmt: (d: Date) => string,
+  /** Shortest an item can look on screen, in hours (= ~chip height / px per hour). */
+  minLen: number,
 ): TimedItem[] {
   const dayStart = startOfDay(day);
   const dayEnd = addDays(dayStart, 1);
@@ -44,12 +45,12 @@ export function timedItems(
     if (ev.allDay || ev.end <= dayStart || ev.start >= dayEnd) continue;
     const s = ev.start < dayStart ? 0 : hoursOf(ev.start);
     const e = ev.end >= dayEnd ? 24 : hoursOf(ev.end);
-    items.push({ kind: "ev", title: ev.title, sub: `${fmt(ev.start)} – ${fmt(ev.end)}`, color: colorOf(ev), recurring: !!ev.recurring, s, e: Math.max(e, s + MIN_LEN), lane: 0, lanes: 1, ev });
+    items.push({ kind: "ev", title: ev.title, sub: `${fmt(ev.start)} – ${fmt(ev.end)}`, color: colorOf(ev), recurring: !!ev.recurring, s, e: Math.max(e, s + minLen), lane: 0, lanes: 1, ev });
   }
   for (const t of tasks) {
     if (!t.due || isDateOnly(t.due) || t.due < dayStart || t.due >= dayEnd) continue;
     const s = hoursOf(t.due);
-    items.push({ kind: "task", title: t.title, sub: "", color: taskColor(t.priority), recurring: false, s, e: s + MIN_LEN, lane: 0, lanes: 1 });
+    items.push({ kind: "task", title: t.title, sub: "", color: taskColor(t.priority), recurring: false, s, e: s + minLen, lane: 0, lanes: 1 });
   }
   assignLanes(items);
   return items;

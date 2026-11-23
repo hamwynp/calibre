@@ -8,7 +8,7 @@
   --accent: #a2cffe;
   --red: #ed8796;
   --gutter: 54px;
-  --hour: 60px;
+  --hour: 20px;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }

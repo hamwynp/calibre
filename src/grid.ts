@@ -3,18 +3,19 @@ import { DAYS, fmtTime, hoursOf, sameDay } from "./dates";
 import { stripItems, timedItems } from "./layout";
 import { $, el } from "./ui";
 
-/** Zoom levels for the time grid (px per hour). Default is a bit more zoomed in than 48. */
-export const ZOOM_LEVELS = [28, 36, 44, 52, 60, 72, 86, 102, 120, 140];
-const ZOOM_KEY = "calibre.zoom";
-const DEFAULT_ZOOM = 4; // 60px per hour
-
+/** Zoom levels for the time grid (px per hour). Default is 20px per hour (whole day at a glance). */
+export const ZOOM_LEVELS = [14, 20, 28, 36, 44, 52, 60, 72, 86, 102, 120, 140];
+const ZOOM_KEY = "calibre.zoom.px"; // stores px per hour (not an index), so changing the levels never breaks it
+const DEFAULT_PX = 20;
 let zoomIdx = (() => {
+  let px = DEFAULT_PX;
   try {
     const v = parseInt(localStorage.getItem(ZOOM_KEY) ?? "", 10);
-    return Number.isInteger(v) && v >= 0 && v < ZOOM_LEVELS.length ? v : DEFAULT_ZOOM;
+    if (ZOOM_LEVELS.includes(v)) px = v;
   } catch {
-    return DEFAULT_ZOOM;
+    /* use the default */
   }
+  return ZOOM_LEVELS.indexOf(px);
 })();
 
 /** Current px per hour. */
@@ -26,7 +27,7 @@ export function stepZoom(dir: 1 | -1): boolean {
   if (n === zoomIdx) return false;
   zoomIdx = n;
   try {
-    localStorage.setItem(ZOOM_KEY, String(zoomIdx));
+    localStorage.setItem(ZOOM_KEY, String(ZOOM_LEVELS[zoomIdx]));
   } catch {
     /* ignore */
   }
@@ -82,7 +83,7 @@ export function renderGrid(ctx: GridCtx): number {
       const cell = el("div", "sc");
       const over = list.length > STRIP_MAX;
       for (const it of over ? list.slice(0, STRIP_MAX - 1) : list) {
-        const c = el("div", "chip " + (it.kind === "task" ? "task" : "ev"));
+        const c = el("div", "chip " + (it.kind === "task" ? "task" : "evt"));
         c.title = it.title;
         if (it.kind === "task") {
           c.style.borderColor = it.color;
@@ -117,7 +118,7 @@ export function renderGrid(ctx: GridCtx): number {
 
   for (const d of days) {
     const col = el("div", "col" + (sameDay(d, now) ? " today" : ""));
-    for (const it of timedItems(events, tasks, d, colorOf, fmtTime)) {
+    for (const it of timedItems(events, tasks, d, colorOf, fmtTime, 22 / HOUR)) {
       const b = el("div", "ev" + (it.kind === "task" ? " tk" : ""));
       b.style.top = it.s * HOUR + "px";
       b.style.height = (it.kind === "task" ? 20 : Math.max(20, (it.e - it.s) * HOUR - 2)) + "px";
