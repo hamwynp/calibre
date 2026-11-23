@@ -50,8 +50,11 @@ export function occurrenceStarts(rec: Recurrence, start: Date, from: Date, to: D
   return out;
 }
 
-/** RFC 5545 RRULE (what Google Calendar expects), e.g. "RRULE:FREQ=WEEKLY;COUNT=10". */
-export function toRRule(rec: Recurrence): string {
+/**
+ * RFC 5545 RRULE (what Google Calendar expects), e.g. "RRULE:FREQ=WEEKLY;COUNT=10".
+ * For timed events an UNTIL date is converted to the end of that local day in UTC.
+ */
+export function toRRule(rec: Recurrence, allDay: boolean): string {
   const parts: string[] = [];
   if (rec.freq === "weekdays") parts.push("FREQ=WEEKLY", "BYDAY=MO,TU,WE,TH,FR");
   else parts.push("FREQ=" + rec.freq.toUpperCase());
@@ -59,10 +62,16 @@ export function toRRule(rec: Recurrence): string {
   if (rec.count) parts.push("COUNT=" + rec.count);
   else if (rec.until) {
     const u = rec.until;
-    parts.push(`UNTIL=${u.getFullYear()}${String(u.getMonth() + 1).padStart(2, "0")}${String(u.getDate()).padStart(2, "0")}`);
+    if (allDay) parts.push(`UNTIL=${u.getFullYear()}${pad(u.getMonth() + 1)}${pad(u.getDate())}`);
+    else {
+      const e = new Date(u.getFullYear(), u.getMonth(), u.getDate(), 23, 59, 59);
+      parts.push(`UNTIL=${e.getUTCFullYear()}${pad(e.getUTCMonth() + 1)}${pad(e.getUTCDate())}T${pad(e.getUTCHours())}${pad(e.getUTCMinutes())}${pad(e.getUTCSeconds())}Z`);
+    }
   }
   return "RRULE:" + parts.join(";");
 }
+
+const pad = (n: number): string => String(n).padStart(2, "0");
 
 export const REPEAT_OPTIONS: { label: string; rec: Pick<Recurrence, "freq" | "interval"> | null }[] = [
   { label: "Does not repeat", rec: null },

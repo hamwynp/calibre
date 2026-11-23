@@ -2,6 +2,8 @@ export interface Calendar {
   id: string;
   name: string;
   color: string;
+  /** false for read-only calendars (holidays, subscribed...). */
+  writable: boolean;
 }
 
 export type Freq = "daily" | "weekdays" | "weekly" | "monthly" | "yearly";
@@ -37,10 +39,22 @@ export interface NewEvent {
   recurrence?: Recurrence;
 }
 
-/** Anything that can supply calendars/events. Google sync will implement this. */
+export type Priority = "H" | "M" | "L" | "";
+
+/** A Taskwarrior task (read-only here). */
+export interface Task {
+  id: string;
+  title: string;
+  due: Date | null;
+  priority: Priority;
+}
+
+/** Anything that can supply calendars/events. */
 export interface CalendarProvider {
   readonly name: string;
   listCalendars(): Promise<Calendar[]>;
   listEvents(from: Date, to: Date): Promise<CalEvent[]>;
   createEvent(ev: NewEvent): Promise<CalEvent>;
+  /** Register a callback for when fresher data arrived in the background. */
+  onUpdate?(cb: () => void): void;
 }

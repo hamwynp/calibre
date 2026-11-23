@@ -5,10 +5,10 @@ import { addDays, mondayOf } from "./dates";
 const KEY = "calibre.demo.events";
 
 const CALENDARS: Calendar[] = [
-  { id: "personal", name: "Personal", color: "#8bd5ca" },
-  { id: "university", name: "University", color: "#a2cffe" },
-  { id: "exams", name: "Exams", color: "#ed8796" },
-  { id: "birthdays", name: "Birthdays", color: "#f5bde6" },
+  { id: "personal", name: "Personal", color: "#8bd5ca", writable: true },
+  { id: "university", name: "University", color: "#a2cffe", writable: true },
+  { id: "exams", name: "Exams", color: "#ed8796", writable: true },
+  { id: "birthdays", name: "Birthdays", color: "#f5bde6", writable: true },
 ];
 
 interface Stored {

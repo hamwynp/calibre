@@ -1,4 +1,4 @@
-export type HelpContext = "week" | "form";
+export type HelpContext = "week" | "day" | "month" | "list" | "form";
 
 type Row = [keys: string, what: string];
 interface Section {
@@ -6,20 +6,76 @@ interface Section {
   rows: Row[];
 }
 
+const COMMON: Row[] = [
+  ["a", "Add an event"],
+  ["r", "Refresh from Google"],
+  ["Ctrl+/", "Show / hide this help"],
+];
+
 const HELP: Record<HelpContext, Section[]> = {
   week: [
     {
       title: "Week",
       rows: [
-        ["h · ←", "Previous week"],
-        ["l · →", "Next week"],
-        ["t · 0", "Jump to today"],
-        ["j · ↓", "Scroll down"],
-        ["k · ↑", "Scroll up"],
+        ["h \u00b7 \u2190", "Previous week"],
+        ["l \u00b7 \u2192", "Next week"],
+        ["t \u00b7 0", "Jump to today"],
+        ["j \u00b7 \u2193", "Scroll down"],
+        ["k \u00b7 \u2191", "Scroll up"],
         ["J", "Scroll to the bottom"],
         ["K", "Scroll to the top (all-day items)"],
-        ["a", "Add an event"],
-        ["Ctrl+/", "Show / hide this help"],
+        ["- \u00b7 =", "Zoom out / in"],
+        ["d", "Day view"],
+        ["m", "Month view"],
+        ["v", "List view"],
+        ...COMMON,
+      ],
+    },
+  ],
+  day: [
+    {
+      title: "Day",
+      rows: [
+        ["h \u00b7 \u2190", "Previous day"],
+        ["l \u00b7 \u2192", "Next day"],
+        ["t \u00b7 0", "Jump to today"],
+        ["j k \u00b7 \u2193 \u2191", "Scroll"],
+        ["J \u00b7 K", "Bottom / top (all-day items)"],
+        ["- \u00b7 =", "Zoom out / in"],
+        ["d", "Back to the week"],
+        ["m", "Month view"],
+        ["v", "List view"],
+        ...COMMON,
+      ],
+    },
+  ],
+  month: [
+    {
+      title: "Month",
+      rows: [
+        ["h \u00b7 \u2190", "Previous month"],
+        ["l \u00b7 \u2192", "Next month"],
+        ["t \u00b7 0", "Current month"],
+        ["d", "Day view"],
+        ["m", "Back to the week"],
+        ["v", "List view"],
+        ["Click", "Open that day"],
+        ...COMMON,
+      ],
+    },
+  ],
+  list: [
+    {
+      title: "List",
+      rows: [
+        ["j k \u00b7 \u2193 \u2191", "Move the cursor"],
+        ["Space", "Select (moves down)"],
+        ["x \u00b7 d", "Dismiss selected / current"],
+        ["u", "Undo dismiss"],
+        ["Enter", "Open in Google Calendar"],
+        ["v", "Back to the week"],
+        ["m", "Month view"],
+        ...COMMON,
       ],
     },
   ],
@@ -59,7 +115,7 @@ const HELP: Record<HelpContext, Section[]> = {
 function build(ctx: HelpContext): DocumentFragment {
   const frag = document.createDocumentFragment();
   const h3 = document.createElement("h3");
-  h3.textContent = ctx === "form" ? "Shortcuts – add event" : "Shortcuts – week";
+  h3.textContent = "Shortcuts – " + (ctx === "form" ? "add event" : ctx);
   frag.append(h3);
   for (const sec of HELP[ctx]) {
     if (HELP[ctx].length > 1) {

@@ -7,12 +7,17 @@
 - [x] `h`/`l` change week (jumps to 12am), `t` today, `j`/`k` scroll
 - [x] Recurring events (daily / weekdays / weekly / monthly / yearly, until or N times)
 - [x] `Ctrl+/` help for each screen
-- [ ] Google login (OAuth, desktop flow) and event fetch
+- [x] Google sync (reuses the gcalcli login for now): calendars, events, create incl. repeats
+- [ ] Built-in Google sign-in (OAuth desktop flow) so gcalcli isn't needed
 - [x] `a` add-event form: title, date, start, length, calendar dropdown, repeat
 - [x] Draft saved to disk until the event is added
 
+## Done since v0.1
+- [x] Day view (`d`), month view (`m`) with Shamsi dates and task balls, list view (`v`)
+- [x] Taskwarrior tasks in the strip, grid, month and list
+
 ## Later
-- Month and list views, edit/delete events, tasks, reminders, themes, packaging.
+- Edit/delete events, event details, reminders, themes, built-in sign-in, offline create queue.
 
 ## Open decisions
 - UI stack: decided - Tauri + TypeScript

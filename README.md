@@ -2,7 +2,7 @@
 
 An open-source, keyboard-first Google Calendar app that runs on any OS.
 
-> Status: early prototype - week view, add-event form and recurring events run on demo data. Google sync is next (see [docs/PLAN.md](docs/PLAN.md)).
+> Status: early prototype. Week, day, month and list views, Google Calendar sync, an add-event form with recurring events, and Taskwarrior tasks (see [docs/PLAN.md](docs/PLAN.md)).
 
 ## Goals
 
@@ -38,3 +38,26 @@ Press `Ctrl+/` in the app for the keyboard shortcuts of the current screen.
 Tauri 2 (Rust shell) + TypeScript UI (Vite, no framework). Google Calendar sync will
 be implemented in the Rust side behind the `CalendarProvider` interface (`src/types.ts`);
 the UI currently runs on `DemoProvider` (`src/demo.ts`).
+
+## Google sync
+
+For now calibre reuses the login that [gcalcli](https://github.com/insanum/gcalcli) already has
+(`gcalcli init`): on first launch it copies the OAuth client and refresh token into its own data
+folder (`~/.local/share/dev.calibre.app/google-token.json`, owner-only) and talks to the Google
+Calendar API directly from then on. A built-in sign-in flow will replace this. Without a login (for
+example in a plain browser during development) the app shows demo data instead.
+
+If Google is blocked on your network, turn your VPN on. The header shows why a sync failed.
+
+## Views and keys
+
+| View | Key | Notes |
+| --- | --- | --- |
+| Week | (default) | `h`/`l` week, `t` today, `j`/`k` scroll, `J`/`K` bottom/top |
+| Day | `d` | `h`/`l` day; `d` again returns to the week |
+| Month | `m` | `h`/`l` month, Shamsi day numbers, task priority balls, click a day to open it |
+| List | `v` | `j`/`k` move, `Space` select, `x`/`d` dismiss, `u` undo, `Enter` open in Google Calendar |
+
+`a` adds an event (with calendar picker, repeat rules and a saved draft), `r` refreshes, and
+`Ctrl+/` shows the shortcuts for the current screen. Pending [Taskwarrior](https://taskwarrior.org)
+tasks (if `task` is installed) show up in the all-day strip, on the grid, and as balls in the month.
