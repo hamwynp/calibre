@@ -2,7 +2,7 @@ import type { CalEvent, Calendar, CalendarProvider, NewEvent, Recurrence } from 
 import { occurrenceStarts } from "./recurrence";
 import { addDays, mondayOf } from "./dates";
 
-const KEY = "gcal.demo.events";
+const KEY = "calibre.demo.events";
 
 const CALENDARS: Calendar[] = [
   { id: "personal", name: "Personal", color: "#8bd5ca" },

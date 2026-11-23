@@ -1,4 +1,4 @@
-// gcal - Tauri shell. Google sync (OAuth + Calendar API) will live here as commands.
+// calibre - Tauri shell. Google sync (OAuth + Calendar API) will live here as commands.
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

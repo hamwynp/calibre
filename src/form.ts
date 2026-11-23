@@ -2,7 +2,7 @@ import type { Calendar, CalendarProvider, NewEvent, Recurrence } from "./types";
 import { addDays, fmtKey, parseDate, parseDuration, parseTime, startOfDay } from "./dates";
 import { REPEAT_OPTIONS } from "./recurrence";
 
-const DRAFT_KEY = "gcal.draft";
+const DRAFT_KEY = "calibre.draft";
 
 interface Draft {
   title: string;

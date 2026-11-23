@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=calibre
+GenericName=Calendar
+Comment=Keyboard-first Google Calendar app
+Exec=calibre
+Icon=calibre
+Terminal=false
+Categories=Office;Calendar;
+StartupWMClass=calibre

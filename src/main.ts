@@ -195,8 +195,14 @@ setInterval(() => {
 }, 60_000);
 window.addEventListener("resize", () => render("keep"));
 
+// Re-centre on "now" a couple of times after launch: the window may not have its real size
+// yet on the first render. Stops as soon as you scroll or press a key yourself.
+let touched = false;
+for (const ev of ["wheel", "keydown", "mousedown"]) document.addEventListener(ev, () => (touched = true), { capture: true, once: true });
+
 void (async () => {
   calendars = await provider.listCalendars();
   await load("now");
+  for (const ms of [60, 250, 700]) setTimeout(() => !touched && weekOffset() === 0 && render("now"), ms);
 })();
 

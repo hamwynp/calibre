@@ -20,6 +20,7 @@ npm-debug.log*
 *.ntvs*
 pnpm-debug.log*
 __pycache__/
+releases/
 *.sln
 *.suo
 *.sw?

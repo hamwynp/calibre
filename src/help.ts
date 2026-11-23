@@ -85,6 +85,9 @@ function build(ctx: HelpContext): DocumentFragment {
     }
     frag.append(dl);
   }
+  const stamp = document.createElement("h4");
+  stamp.textContent = "calibre " + __BUILD__;
+  frag.append(stamp);
   return frag;
 }
 

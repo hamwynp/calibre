@@ -1,4 +1,4 @@
-# gcal
+# calibre
 
 An open-source, keyboard-first Google Calendar app that runs on any OS.
 
