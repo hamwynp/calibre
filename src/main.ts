@@ -156,7 +156,7 @@ const form = initForm({
 
 const help = createHelp(() => (form.isOpen() ? "form" : "week"));
 
-// Ctrl+? toggles the help; Esc closes it first. Capture phase so it works inside inputs too.
+// Ctrl+/ toggles the help; Esc closes it first. Capture phase so it works inside inputs too.
 document.addEventListener(
   "keydown",
   (e) => {

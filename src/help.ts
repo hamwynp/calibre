@@ -19,7 +19,7 @@ const HELP: Record<HelpContext, Section[]> = {
         ["J", "Scroll to the bottom"],
         ["K", "Scroll to the top (all-day items)"],
         ["a", "Add an event"],
-        ["Ctrl+?", "Show / hide this help"],
+        ["Ctrl+/", "Show / hide this help"],
       ],
     },
   ],
@@ -32,7 +32,7 @@ const HELP: Record<HelpContext, Section[]> = {
         ["↑ ↓", "Move between fields"],
         ["Esc", "Close (draft is kept)"],
         ["Ctrl+L", "Clear the draft"],
-        ["Ctrl+?", "Show / hide this help"],
+        ["Ctrl+/", "Show / hide this help"],
       ],
     },
     {

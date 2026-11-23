@@ -31,7 +31,7 @@ npm run tauri dev     # desktop app
 npm run dev           # just the UI in a browser (http://localhost:1420)
 ```
 
-Press `Ctrl+?` in the app for the keyboard shortcuts of the current screen.
+Press `Ctrl+/` in the app for the keyboard shortcuts of the current screen.
 
 ## Stack
 
