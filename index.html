@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>gcal</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+    <script type="module" src="/src/main.ts" defer></script>
+  </head>
+  <body>
+    <div id="app">
+      <header class="top">
+        <h1 id="title"></h1>
+        <span id="calerr" class="calerr"></span>
+        <span class="spacer"></span>
+        <span id="weekhint" class="pill" hidden></span>
+      </header>
+      <div class="dayhead" id="dayhead"></div>
+      <div class="scroll" id="scroll"><div class="inner" id="inner"></div></div>
+    </div>
+
+    <div class="overlay" id="overlay" hidden>
+      <form class="card" id="form" autocomplete="off">
+        <h2>New event</h2>
+        <label class="row"><span>Title</span><input id="f-title" /></label>
+        <label class="row"><span>Date</span><input id="f-date" /></label>
+        <label class="row"><span>Start</span><input id="f-start" /></label>
+        <label class="row"><span>Length</span><input id="f-len" /></label>
+        <div class="row">
+          <span>Calendar</span>
+          <div class="select" id="f-cal" tabindex="0"><span id="f-cal-name"></span><i id="f-cal-caret">▾</i></div>
+        </div>
+        <ul class="options" id="f-cal-list" hidden></ul>
+        <div class="row">
+          <span>Repeat</span>
+          <div class="select" id="f-rep" tabindex="0"><span id="f-rep-name"></span><i id="f-rep-caret">▾</i></div>
+        </div>
+        <ul class="options" id="f-rep-list" hidden></ul>
+        <label class="row" id="f-until-row" hidden><span>Until</span><input id="f-until" /></label>
+        <p class="status" id="f-status"></p>
+      </form>
+    </div>
+
+    <div class="help" id="help" hidden></div>
+  </body>
+</html>
