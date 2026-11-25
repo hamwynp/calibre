@@ -33,7 +33,7 @@ npm run dev           # just the UI in a browser (http://localhost:1420)
 
 Right-click an event (week, day, month or list view; or press `e` in the list) to edit it: title, date, time, length, calendar and how often it repeats. Picking another calendar moves the event (a repeating event moves as a whole). For a repeating event you choose whether the change is for just that one or the whole series. New events always start as "Does not repeat" on the calendar you last added to.
 
-In the week, day and month views `Tab` / `Shift+Tab` walks a cursor through the events in reading order (day by day, all-day first). With an event selected: `e` edits it, `y` duplicates it (opens the add form filled with a copy of its details), `d` or `Delete` deletes it after asking (for a repeating event: this one or the whole series), and `Esc` clears the selection. The same three are in the right-click menu; with nothing selected `d` still switches to the day view.
+In the week, day and month views `Tab` / `Shift+Tab` walks a cursor through the events in reading order (day by day, all-day first). With an event selected: `e` edits it, `y` duplicates it (opens the add form filled with a copy of its details), `x` or `Delete` deletes it after asking (for a repeating event: this one or the whole series), and `Esc` clears the selection. The same three are in the right-click menu; `d` always just switches to the day view.
 
 Press `Ctrl+/` in the app for the keyboard shortcuts of the current screen, and `Ctrl+I` for settings (Shamsi dates on/off, sidebar).
 

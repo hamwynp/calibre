@@ -498,7 +498,15 @@ document.addEventListener("keydown", (e) => {
     case "J": if (scrollable) scroller.scrollTop = scroller.scrollHeight; break;
     case "K": if (scrollable) scroller.scrollTop = 0; break;
     case " ": if (view === "list") toggleSelect(); break;
-    case "x": if (view === "list") dismissSelectionOrCursor(); break;
+    case "x": {
+      // list view: hide the row; week / day / month: delete the selected event (asks first)
+      if (view === "list") dismissSelectionOrCursor();
+      else {
+        const ev = cursorEvent();
+        if (ev) void startDelete(ev);
+      }
+      break;
+    }
     case "u": if (view === "list") undoDismiss(); break;
     case "Enter": if (view === "list") openRowInGoogle(); break;
     case "Tab": if (view === "list") return; moveCursor(e.shiftKey ? -1 : 1); break;
@@ -506,13 +514,10 @@ document.addEventListener("keydown", (e) => {
     case "e": { const ev = cursorEvent(); if (ev) void startEdit(ev); break; }
     case "y": { const ev = cursorEvent(); if (ev) void startDuplicate(ev); break; }
     case "Delete": { const ev = cursorEvent(); if (ev) void startDelete(ev); break; }
-    case "d": {
-      const ev = view === "list" ? null : cursorEvent();
+    case "d":
       if (view === "list") dismissSelectionOrCursor();
-      else if (ev) void startDelete(ev); // an event is selected: d deletes it
       else setView(view === "day" ? "week" : "day");
       break;
-    }
     case "m": setView(view === "month" ? "week" : "month"); break;
     case "w": setView("week"); break;
     case "s": setView(view === "list" ? "week" : "list"); break;

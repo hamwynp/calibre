@@ -11,7 +11,7 @@ const EVENT_KEYS: Row[] = [
   ["Tab · Shift+Tab", "Select next / previous event"],
   ["e", "Edit the selected event"],
   ["y", "Duplicate it (opens the add form, filled in)"],
-  ["d · Delete", "Delete it (asks first)"],
+  ["x · Delete", "Delete it (asks first)"],
   ["Esc", "Clear the selection"],
 ];
 
