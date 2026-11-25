@@ -2,6 +2,7 @@ import type { CalEvent, Task } from "./types";
 import { addDays, fmtTime, sameDay, startOfDay } from "./dates";
 import { dayBalls, dayKey, tasksByDay } from "./tasks";
 import { jalaliOf } from "./jalali";
+import { navKey } from "./nav";
 import { $, el } from "./ui";
 
 export interface MonthCtx {
@@ -12,6 +13,8 @@ export interface MonthCtx {
   colorOf: (ev: CalEvent) => string;
   now: Date;
   shamsi: boolean;
+  /** Key (see nav.ts) of the event the keyboard cursor is on. */
+  cursor?: string | null;
   /** Right-click on an event chip. */
   onEventMenu?: (ev: CalEvent, x: number, y: number) => void;
   /** Clicking a day cell. */
@@ -77,7 +80,7 @@ export function renderMonth(ctx: MonthCtx): void {
       const list = el("div", "mevs");
       for (const ev of todays) {
         const color = ctx.colorOf(ev);
-        const chip = el("div", "mev" + (ev.allDay ? " allday" : ""));
+        const chip = el("div", "mev" + (ev.allDay ? " allday" : "") + (ctx.cursor && navKey(ev, day) === ctx.cursor ? " kcur" : ""));
         chip.title = ev.title + (ev.allDay ? "" : "\n" + fmtTime(ev.start) + " – " + fmtTime(ev.end));
         if (ev.allDay) chip.style.background = color;
         else {
@@ -112,7 +115,11 @@ function fitChips(grid: HTMLElement): void {
     const chips = [...list.children] as HTMLElement[];
     if (chips.length <= cap) continue;
     const keep = Math.max(0, cap - 1);
-    chips.slice(keep).forEach((c) => c.remove());
-    list.append(el("div", "mmore", `+${chips.length - keep} more`));
+    let shown = chips.slice(0, keep);
+    // the cursor's chip must never hide behind "+N more": it takes the last visible slot
+    const sel = chips.find((c) => c.classList.contains("kcur"));
+    if (sel && !shown.includes(sel)) shown = [...shown.slice(0, Math.max(0, keep - 1)), sel];
+    for (const c of chips) if (!shown.includes(c)) c.remove();
+    list.replaceChildren(...shown, el("div", "mmore", `+${chips.length - shown.length} more`));
   }
 }

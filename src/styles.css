@@ -208,3 +208,17 @@ kbd { font: 600 10.5px/1 ui-monospace, "SF Mono", "JetBrains Mono", monospace; b
 .ctxmenu button:hover:not(:disabled), .ctxmenu button:focus-visible { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent); outline: none; }
 .ctxmenu button:disabled { color: var(--sub); cursor: default; }
 .ev:not(.tk), .chip.evt { cursor: context-menu; }
+
+/* keyboard cursor (Tab) */
+.kcur { outline: 2px solid var(--accent); outline-offset: 1px; box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 22%, transparent); position: relative; z-index: 2; }
+.ev.kcur { z-index: 3; }
+.mev.kcur { overflow: visible; }
+
+/* delete confirmation */
+.card.confirm { width: 360px; }
+.card.confirm p { margin: 0; color: var(--sub); font-size: 12.5px; line-height: 1.5; }
+.card.confirm .btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.card.confirm button { height: 32px; padding: 0 12px; border-radius: 9px; border: 1px solid var(--border); background: var(--card); color: var(--text); font: inherit; font-size: 12.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+.card.confirm button kbd { font-size: 10px; opacity: 0.6; }
+.card.confirm button.danger { background: #ed8796; border-color: #ed8796; color: #11131a; font-weight: 600; }
+.card.confirm button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }

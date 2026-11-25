@@ -144,4 +144,12 @@ export class DemoProvider implements CalendarProvider {
     }
     this.save();
   }
+
+  async deleteEvent(ev: CalEvent, scope: EditScope): Promise<void> {
+    const base = this.baseOf(ev);
+    if (!base) return;
+    if (base.recurrence && scope === "one") (base.exceptions ??= []).push(ev.start.getTime());
+    else this.events = this.events.filter((e) => e !== base);
+    this.save();
+  }
 }

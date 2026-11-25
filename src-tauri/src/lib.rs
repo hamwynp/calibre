@@ -18,6 +18,7 @@ pub fn run() {
             google::google_event_detail,
             google::google_update,
             google::google_move,
+            google::google_delete,
             tasks::tasks_pending
         ])
         .run(tauri::generate_context!())

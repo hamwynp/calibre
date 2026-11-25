@@ -2,6 +2,7 @@ import { jalaliOf } from "./jalali";
 import type { CalEvent, Task } from "./types";
 import { DAYS, fmtTime, hoursOf, sameDay } from "./dates";
 import { stripItems, timedItems } from "./layout";
+import { navKey } from "./nav";
 import { $, el } from "./ui";
 
 /** Zoom levels for the time grid (px per hour). Default is 20px per hour (whole day at a glance). */
@@ -62,6 +63,8 @@ export interface GridCtx {
   now: Date;
   /** Show the Shamsi day under each date. */
   shamsi?: boolean;
+  /** Key (see nav.ts) of the event the keyboard cursor is on. */
+  cursor?: string | null;
   /** Right-click on an event. */
   onEventMenu?: (ev: CalEvent, x: number, y: number) => void;
 }
@@ -72,7 +75,7 @@ export interface GridCtx {
  * the "now" line. Returns the strip height (px) so callers can scroll to "now".
  */
 export function renderGrid(ctx: GridCtx): number {
-  const { days, events, tasks, colorOf, now, shamsi, onEventMenu } = ctx;
+  const { days, events, tasks, colorOf, now, shamsi, onEventMenu, cursor } = ctx;
   const dayhead = $<HTMLDivElement>("dayhead");
   const inner = $<HTMLDivElement>("inner");
   const HOUR = hourPx();
@@ -98,11 +101,15 @@ export function renderGrid(ctx: GridCtx): number {
     const strip = el("div", "strip");
     strip.style.height = stripH + "px";
     strip.append(el("div", "lbl", "all-day"));
-    for (const list of strips) {
+    for (const [di, list] of strips.entries()) {
       const cell = el("div", "sc");
       const over = list.length > STRIP_MAX;
-      for (const it of over ? list.slice(0, STRIP_MAX - 1) : list) {
-        const c = el("div", "chip " + (it.kind === "task" ? "task" : "evt"));
+      let vis = over ? list.slice(0, STRIP_MAX - 1) : list;
+      // the cursor's chip must never hide behind "+N more"
+      const sel = over && cursor ? list.find((it) => it.ev && navKey(it.ev, days[di]!) === cursor) : undefined;
+      if (sel && !vis.includes(sel)) vis = [...vis.slice(0, -1), sel];
+      for (const it of vis) {
+        const c = el("div", "chip " + (it.kind === "task" ? "task" : "evt") + (it.ev && cursor && navKey(it.ev, days[di]!) === cursor ? " kcur" : ""));
         c.title = it.title;
         if (it.kind === "task") {
           c.style.borderColor = it.color;
@@ -140,7 +147,7 @@ export function renderGrid(ctx: GridCtx): number {
   for (const d of days) {
     const col = el("div", "col" + (sameDay(d, now) ? " today" : ""));
     for (const it of timedItems(events, tasks, d, colorOf, fmtTime, 22 / HOUR)) {
-      const b = el("div", "ev" + (it.kind === "task" ? " tk" : ""));
+      const b = el("div", "ev" + (it.kind === "task" ? " tk" : "") + (it.ev && cursor && navKey(it.ev, d) === cursor ? " kcur" : ""));
       b.style.top = it.s * HOUR + "px";
       b.style.height = (it.kind === "task" ? 20 : Math.max(20, (it.e - it.s) * HOUR - 2)) + "px";
       b.style.left = `calc(${(it.lane / it.lanes) * 100}% + 2px)`;

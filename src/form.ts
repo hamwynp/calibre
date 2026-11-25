@@ -169,10 +169,17 @@ class Dropdown {
  * The event form: title / date / start / length / calendar / repeat / until.
  * Adding: the draft is saved on every edit and only cleared after the event is created (or with
  * Ctrl+L); it always starts at "Does not repeat" and on the calendar last added to.
+ * Duplicating (y on an event): the add form prefilled with a copy of the event's details; it never
+ * touches the saved draft.
  * Editing (right-click an event): the same fields prefilled; repeating events also ask whether the
  * change is for this occurrence or the whole series.
  */
-export function initForm(deps: FormDeps): { open: () => void; openEdit: (ev: CalEvent, src: EditSource) => void; isOpen: () => boolean } {
+export function initForm(deps: FormDeps): {
+  open: () => void;
+  openEdit: (ev: CalEvent, src: EditSource) => void;
+  openDuplicate: (ev: CalEvent, src: EditSource) => void;
+  isOpen: () => boolean;
+} {
   const overlay = $<HTMLDivElement>("overlay");
   const form = $<HTMLFormElement>("form");
   const heading = $<HTMLElement>("f-heading");
@@ -192,9 +199,11 @@ export function initForm(deps: FormDeps): { open: () => void; openEdit: (ev: Cal
   let edit: { ev: CalEvent; src: EditSource; initialRep: number; initialUntil: string } | null = null;
   /** Editing a series whose rule calibre can't show: an extra "keep" entry is offered and preselected. */
   let customRule = false;
+  /** Adding a copy of an existing event: the draft is left alone. */
+  let dup = false;
 
   const persist = () => {
-    if (!edit) saveDraft(draft);
+    if (!edit && !dup) saveDraft(draft);
   };
   /** Calendars the form can pick from (the writable ones; when editing, choosing another one moves the event). */
   const calList = (): Calendar[] => deps.calendars();
@@ -251,6 +260,7 @@ export function initForm(deps: FormDeps): { open: () => void; openEdit: (ev: Cal
 
   function open(): void {
     edit = null;
+    dup = false;
     customRule = false;
     heading.textContent = "New event";
     draft = loadDraft();
@@ -267,6 +277,7 @@ export function initForm(deps: FormDeps): { open: () => void; openEdit: (ev: Cal
   }
 
   function openEdit(ev: CalEvent, src: EditSource): void {
+    dup = false;
     const rule = src.series?.rule;
     customRule = !!rule?.exotic;
     edit = { ev, src, initialRep: customRule ? KEEP : repeatIndex(rule?.rec ?? null), initialUntil: rule && !rule.exotic ? untilText(rule.rec) : "" };
@@ -280,6 +291,28 @@ export function initForm(deps: FormDeps): { open: () => void; openEdit: (ev: Cal
     showAll();
   }
 
+  /** The add form, prefilled with everything about `ev` (this occurrence's date, the series' repeat rule). */
+  function openDuplicate(ev: CalEvent, src: EditSource): void {
+    edit = null;
+    dup = true;
+    customRule = false;
+    heading.textContent = "Duplicate event";
+    const { start, end, allDay } = src.one;
+    fTitle.value = ev.title;
+    fDate.value = fmtKey(start);
+    fStart.value = allDay ? "" : `${pad2(start.getHours())}:${pad2(start.getMinutes())}`;
+    fLen.value = fmtLen(start, end, allDay);
+    const rule = src.series?.rule;
+    const exotic = !!rule?.exotic;
+    rep.idx = rule && !exotic ? repeatIndex(rule.rec) : 0;
+    fUntil.value = rule && !exotic ? untilText(rule.rec) : "";
+    const own = deps.calendars().findIndex((c) => c.id === ev.calendarId);
+    const last = deps.calendars().findIndex((c) => c.id === loadLastCal());
+    cal.idx = own >= 0 ? own : Math.max(0, last);
+    showAll();
+    if (exotic) setStatus("This event's custom repeat rule was not copied; set Repeat if you want one.");
+  }
+
   function close(): void {
     cal.close();
     rep.close();
@@ -287,10 +320,11 @@ export function initForm(deps: FormDeps): { open: () => void; openEdit: (ev: Cal
     overlay.hidden = true;
     busy = false;
     edit = null;
+    dup = false;
   }
 
   function clearForm(): void {
-    if (edit) return;
+    if (edit || dup) return;
     draft = { ...EMPTY };
     fTitle.value = fDate.value = fStart.value = fLen.value = fUntil.value = "";
     rep.idx = 0;
@@ -364,8 +398,10 @@ export function initForm(deps: FormDeps): { open: () => void; openEdit: (ev: Cal
         setStatus(`Adding to ${calendar.name}...`);
         await deps.provider.createEvent(ev);
         saveLastCal(calendar.id);
-        draft = { ...EMPTY };
-        persist();
+        if (!dup) {
+          draft = { ...EMPTY };
+          persist();
+        }
       }
       close();
       deps.onCreated();
@@ -412,5 +448,5 @@ export function initForm(deps: FormDeps): { open: () => void; openEdit: (ev: Cal
     e.preventDefault();
   });
 
-  return { open, openEdit, isOpen: () => !overlay.hidden };
+  return { open, openEdit, openDuplicate, isOpen: () => !overlay.hidden };
 }

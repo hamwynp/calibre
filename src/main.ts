@@ -17,6 +17,8 @@ import { loadCollapsed, loadDismissed, loadHiddenCalendars, loadSettings, loadSi
 import { initForm } from "./form";
 import { createHelp } from "./help";
 import { menuOpen, showMenu } from "./contextmenu";
+import { navItems, type NavItem } from "./nav";
+import { createConfirm } from "./confirm";
 import { $ } from "./ui";
 
 type View = "week" | "day" | "month" | "list";
@@ -37,6 +39,9 @@ let undoStack: string[][] = [];
 let cursor = 0;
 let selected = new Set<string>();
 let rows: ListRow[] = [];
+
+// keyboard cursor over events (Tab) in the week / day / month views: key of the current stop, see nav.ts
+let kcur: string | null = null;
 
 // which calendars are shown, sidebar state
 let hidden = loadHiddenCalendars();
@@ -199,12 +204,12 @@ function render(mode: ScrollMode): void {
   if (grid) {
     const keepTop = scroller.scrollTop;
     const days = view === "week" ? weekDays() : [anchor];
-    const stripH = renderGrid({ days, events: shown, tasks, colorOf, now, shamsi: settings.shamsi, onEventMenu: eventMenu });
+    const stripH = renderGrid({ days, events: shown, tasks, colorOf, now, shamsi: settings.shamsi, cursor: kcur, onEventMenu: eventMenu });
     if (mode === "top") scroller.scrollTop = 0;
     else if (mode === "now") scroller.scrollTop = Math.max(0, stripH + hoursOf(now) * hourPx() - scroller.clientHeight / 2);
     else scroller.scrollTop = keepTop;
   } else if (view === "month") {
-    renderMonth({ anchor, events: shown, tasks, colorOf, now, shamsi: settings.shamsi, onEventMenu: eventMenu, onPick: (d) => setView("day", d) });
+    renderMonth({ anchor, events: shown, tasks, colorOf, now, shamsi: settings.shamsi, cursor: kcur, onEventMenu: eventMenu, onPick: (d) => setView("day", d) });
   } else {
     rows = buildRows(shown, tasks, dismissed, now, colorOf, "#a2cffe");
     cursor = Math.max(0, Math.min(cursor, rows.length - 1));
@@ -245,6 +250,7 @@ function modeForNav(): ScrollMode {
 
 // ---------- navigation ----------
 function step(dir: -1 | 1): void {
+  kcur = null;
   if (view === "week") anchor = addDays(anchor, 7 * dir);
   else if (view === "day") anchor = addDays(anchor, dir);
   else if (view === "month") anchor = new Date(anchor.getFullYear(), anchor.getMonth() + dir, 1);
@@ -253,12 +259,14 @@ function step(dir: -1 | 1): void {
 }
 
 function goToday(): void {
+  kcur = null;
   anchor = today();
   if (view === "list") cursor = 0;
   void load("now");
 }
 
 function setView(v: View, date?: Date): void {
+  kcur = null;
   if (date) anchor = startOfDay(date);
   // leaving month for week/day: if we're in the current month, land on today
   else if (v !== "month" && view === "month" && sameDay(new Date(anchor.getFullYear(), anchor.getMonth(), 1), new Date(today().getFullYear(), today().getMonth(), 1))) anchor = today();
@@ -280,6 +288,7 @@ function toggleCalendar(id: string): void {
 
 /** A day was clicked in the mini calendar: show it in the current view (list -> week). */
 function pickDate(d: Date): void {
+  kcur = null;
   anchor = startOfDay(d);
   if (view === "list") view = "week";
   void load(modeForNav());
@@ -368,9 +377,41 @@ const settingsPanel = createSettings({
   },
 });
 
-// ---------- editing an event ----------
+// ---------- Tab cursor, edit / duplicate / delete ----------
+const confirm = createConfirm();
+
+function visibleDays(): Date[] {
+  if (view === "week") return weekDays();
+  if (view === "day") return [anchor];
+  if (view === "month") return monthCells(anchor);
+  return [];
+}
+const stops = (): NavItem[] => navItems(events.filter((e) => !hidden.has(e.calendarId)), visibleDays());
+
+/** The event the keyboard is on: the Tab cursor, or the highlighted row in the list view. */
+function cursorEvent(): CalEvent | null {
+  if (view === "list") return rows[cursor]?.ev ?? null;
+  return kcur ? (stops().find((s) => s.key === kcur)?.ev ?? null) : null;
+}
+
+/** Tab / Shift+Tab: next / previous event in reading order, wrapping around. */
+function moveCursor(dir: 1 | -1): void {
+  const all = stops();
+  if (!all.length) return;
+  const i = all.findIndex((s) => s.key === kcur);
+  kcur = all[i < 0 ? (dir === 1 ? 0 : all.length - 1) : (i + dir + all.length) % all.length]!.key;
+  render("keep");
+  document.querySelector(".kcur")?.scrollIntoView({ block: "nearest", inline: "nearest" });
+}
+
+const isReadOnly = (ev: CalEvent): boolean => calendars.find((c) => c.id === ev.calendarId)?.writable === false;
+const readOnlyNote = (): void => {
+  $("calerr").textContent = "⚠ That calendar is read-only";
+};
+
 /** Load what the form needs, then open it prefilled. */
 async function startEdit(ev: CalEvent): Promise<void> {
+  if (isReadOnly(ev)) return readOnlyNote();
   try {
     form.openEdit(ev, await provider.loadForEdit(ev));
   } catch (e) {
@@ -378,9 +419,42 @@ async function startEdit(ev: CalEvent): Promise<void> {
   }
 }
 
+/** y: the add form with a copy of the event's details, ready to change. */
+async function startDuplicate(ev: CalEvent): Promise<void> {
+  try {
+    form.openDuplicate(ev, await provider.loadForEdit(ev));
+  } catch (e) {
+    showError(e);
+  }
+}
+
+/** d: ask first; for a repeating event also whether it is this one or the whole series. */
+async function startDelete(ev: CalEvent): Promise<void> {
+  if (isReadOnly(ev)) return readOnlyNote();
+  const scope = await confirm.askDelete(ev.title, !!ev.recurring);
+  if (!scope) return;
+  const at = kcur ? stops().findIndex((s) => s.key === kcur) : -1;
+  try {
+    await provider.deleteEvent(ev, scope);
+  } catch (e) {
+    return showError(e);
+  }
+  await load("keep");
+  if (at >= 0) {
+    // keep the cursor where it was: on whatever moved up into that spot
+    const all = stops();
+    kcur = all.length ? all[Math.min(at, all.length - 1)]!.key : null;
+    render("keep");
+  }
+}
+
 function eventMenu(ev: CalEvent, x: number, y: number): void {
-  const readOnly = calendars.find((c) => c.id === ev.calendarId)?.writable === false;
-  showMenu(x, y, [{ label: readOnly ? "Edit (read-only calendar)" : "Edit event…", disabled: readOnly, run: () => void startEdit(ev) }]);
+  const ro = isReadOnly(ev);
+  showMenu(x, y, [
+    { label: ro ? "Edit (read-only calendar)" : "Edit event…", disabled: ro, run: () => void startEdit(ev) },
+    { label: "Duplicate…", run: () => void startDuplicate(ev) },
+    { label: "Delete…", disabled: ro, run: () => void startDelete(ev) },
+  ]);
 }
 
 const help = createHelp(() => (form.isOpen() ? "form" : picker.isOpen() ? "calendars" : view));
@@ -402,7 +476,7 @@ document.addEventListener(
 );
 
 document.addEventListener("keydown", (e) => {
-  if (form.isOpen() || picker.isOpen() || signin.isOpen() || settingsPanel.isOpen() || menuOpen() || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (form.isOpen() || picker.isOpen() || signin.isOpen() || settingsPanel.isOpen() || menuOpen() || confirm.isOpen() || e.ctrlKey || e.metaKey || e.altKey) return;
   const t = e.target as HTMLElement | null;
   if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
   const scrollable = view === "week" || view === "day";
@@ -427,15 +501,18 @@ document.addEventListener("keydown", (e) => {
     case "x": if (view === "list") dismissSelectionOrCursor(); break;
     case "u": if (view === "list") undoDismiss(); break;
     case "Enter": if (view === "list") openRowInGoogle(); break;
-    case "e": {
-      const ev = view === "list" ? rows[cursor]?.ev : undefined;
-      if (ev) void startEdit(ev);
-      break;
-    }
-    case "d":
+    case "Tab": if (view === "list") return; moveCursor(e.shiftKey ? -1 : 1); break;
+    case "Escape": if (!kcur) return; kcur = null; render("keep"); break;
+    case "e": { const ev = cursorEvent(); if (ev) void startEdit(ev); break; }
+    case "y": { const ev = cursorEvent(); if (ev) void startDuplicate(ev); break; }
+    case "Delete": { const ev = cursorEvent(); if (ev) void startDelete(ev); break; }
+    case "d": {
+      const ev = view === "list" ? null : cursorEvent();
       if (view === "list") dismissSelectionOrCursor();
+      else if (ev) void startDelete(ev); // an event is selected: d deletes it
       else setView(view === "day" ? "week" : "day");
       break;
+    }
     case "m": setView(view === "month" ? "week" : "month"); break;
     case "w": setView("week"); break;
     case "s": setView(view === "list" ? "week" : "list"); break;

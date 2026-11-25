@@ -6,11 +6,20 @@ interface Section {
   rows: Row[];
 }
 
+/** The Tab cursor keys (week, day, month). */
+const EVENT_KEYS: Row[] = [
+  ["Tab · Shift+Tab", "Select next / previous event"],
+  ["e", "Edit the selected event"],
+  ["y", "Duplicate it (opens the add form, filled in)"],
+  ["d · Delete", "Delete it (asks first)"],
+  ["Esc", "Clear the selection"],
+];
+
 const COMMON: Row[] = [
   ["v", "Choose which calendars to show"],
   ["b", "Show / hide the sidebar"],
   ["a", "Add an event"],
-  ["Right-click", "Edit an event (week, day, month, list)"],
+  ["Right-click", "Edit / Duplicate / Delete an event"],
   ["Ctrl+I", "Settings (Shamsi calendar, sidebar)"],
   ["r", "Refresh from Google"],
   ["Ctrl+/", "Show / hide this help"],
@@ -33,6 +42,7 @@ const HELP: Record<HelpContext, Section[]> = {
         ["d", "Day view"],
         ["m", "Month view"],
         ["s", "List (schedule) view"],
+        ...EVENT_KEYS,
         ...COMMON,
       ],
     },
@@ -51,6 +61,7 @@ const HELP: Record<HelpContext, Section[]> = {
         ["w \u00b7 d", "Week view"],
         ["m", "Month view"],
         ["s", "List (schedule) view"],
+        ...EVENT_KEYS,
         ...COMMON,
       ],
     },
@@ -66,6 +77,7 @@ const HELP: Record<HelpContext, Section[]> = {
         ["w \u00b7 m", "Week view"],
         ["s", "List (schedule) view"],
         ["Click", "Open that day"],
+        ...EVENT_KEYS,
         ...COMMON,
       ],
     },
@@ -80,6 +92,8 @@ const HELP: Record<HelpContext, Section[]> = {
         ["u", "Undo dismiss"],
         ["Enter", "Open in Google Calendar"],
         ["e", "Edit the event"],
+        ["y", "Duplicate the event"],
+        ["Delete", "Delete the event (asks first)"],
         ["w \u00b7 s", "Week view"],
         ["m", "Month view"],
         ...COMMON,

@@ -30,6 +30,8 @@ export interface CalEvent {
   recurring?: boolean;
   /** The provider's own id for this event (Google: without the calendar prefix). */
   eventId?: string;
+  /** For an occurrence of a repeating event: the id of the whole series (when the provider knows it). */
+  seriesId?: string;
 }
 
 export interface NewEvent {
@@ -88,6 +90,8 @@ export interface CalendarProvider {
   createEvent(ev: NewEvent): Promise<CalEvent>;
   /** Fetch what the edit form needs (for repeating events: the series too). */
   loadForEdit(ev: CalEvent): Promise<EditSource>;
+  /** Delete an event; scope "one" = just this occurrence, "all" = the whole series. */
+  deleteEvent(ev: CalEvent, scope: EditScope): Promise<void>;
   /** Change an event; scope "one" = just this occurrence, "all" = the whole series. */
   updateEvent(ev: CalEvent, src: EditSource, patch: EditPatch, scope: EditScope): Promise<void>;
   /** Register a callback for when fresher data arrived in the background. */

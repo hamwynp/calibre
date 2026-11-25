@@ -186,6 +186,8 @@ pub struct EventDto {
     end: String,
     all_day: bool,
     recurring: bool,
+    /// For an occurrence of a repeating event: the id of the whole series.
+    recurring_event_id: Option<String>,
 }
 
 #[tauri::command]
@@ -236,6 +238,7 @@ fn map_event(e: &Value, calendar_id: &str) -> Option<EventDto> {
         end,
         all_day,
         recurring: e.get("recurringEventId").is_some(),
+        recurring_event_id: e["recurringEventId"].as_str().map(str::to_string),
     })
 }
 
@@ -498,6 +501,17 @@ pub async fn google_move(app: AppHandle, st: State<'_, GoogleState>, calendar_id
         .await
         .map_err(friendly)?;
     if !resp.status().is_success() {
+        return Err(api_error(resp).await);
+    }
+    Ok(())
+}
+
+/// Delete an event, or a whole series when given the series id. Already gone (410) counts as done.
+#[tauri::command]
+pub async fn google_delete(app: AppHandle, st: State<'_, GoogleState>, calendar_id: String, event_id: String) -> Result<(), String> {
+    let token = access_token(&app, &st).await?;
+    let resp = st.client.delete(event_url(&calendar_id, &event_id)?).bearer_auth(&token).send().await.map_err(friendly)?;
+    if !resp.status().is_success() && resp.status().as_u16() != 410 {
         return Err(api_error(resp).await);
     }
     Ok(())

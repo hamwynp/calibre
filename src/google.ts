@@ -17,6 +17,7 @@ interface EventDto {
   end: string;
   allDay: boolean;
   recurring: boolean;
+  recurringEventId?: string | null;
 }
 
 const SNAPSHOT = "calibre.google.snapshot";
@@ -41,6 +42,7 @@ const toEvent = (d: EventDto): CalEvent => ({
   allDay: d.allDay,
   recurring: d.recurring,
   eventId: d.id,
+  seriesId: d.recurringEventId ?? undefined,
 });
 
 interface DetailDto {
@@ -205,6 +207,16 @@ export class GoogleProvider implements CalendarProvider {
         throw new Error("Saved, but could not move it to the other calendar: " + (e instanceof Error ? e.message : String(e)));
       }
     }
+    if (this.win) await this.fetchWindow(this.win.from, this.win.to);
+  }
+
+  async deleteEvent(ev: CalEvent, scope: EditScope): Promise<void> {
+    let id = ev.eventId ?? "";
+    if (scope === "all" && ev.recurring) {
+      // events cached before series ids were tracked: ask Google
+      id = ev.seriesId ?? (await this.loadForEdit(ev)).series?.id ?? id;
+    }
+    await invoke("google_delete", { calendarId: ev.calendarId, eventId: id });
     if (this.win) await this.fetchWindow(this.win.from, this.win.to);
   }
 }
