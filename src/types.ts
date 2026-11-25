@@ -57,4 +57,10 @@ export interface CalendarProvider {
   createEvent(ev: NewEvent): Promise<CalEvent>;
   /** Register a callback for when fresher data arrived in the background. */
   onUpdate?(cb: () => void): void;
+  /** Present for providers that need a sign-in (Google). */
+  auth?: {
+    signedIn(): Promise<boolean>;
+    signIn(): Promise<void>;
+    signOut(): Promise<void>;
+  };
 }

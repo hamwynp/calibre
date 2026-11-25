@@ -1,15 +1,25 @@
-//! Google Calendar access (REST API v3).
+//! Google Calendar access (REST API v3) with a built-in sign-in.
 //!
-//! Login: for now calibre reuses the login that `gcalcli` already has. On first use the
-//! OAuth client + refresh token are copied from gcalcli's saved login into calibre's own
-//! data dir (`google-token.json`, owner-only). After that only calibre's copy is used and
-//! access tokens are refreshed here. (A built-in sign-in flow will replace the import.)
+//! Sign-in is OAuth 2.0 for installed apps: the system browser opens Google's consent page,
+//! Google redirects to a temporary `http://127.0.0.1:<port>` listener, and the code is exchanged
+//! (with PKCE) for a refresh token that is stored owner-only in `google-token.json` in the app
+//! data dir. Access tokens are refreshed here as needed.
+//!
+//! The OAuth *client* (id + secret) comes from, in order: `google-client.json` in the app data
+//! dir, a client embedded at build time (`CALIBRE_GOOGLE_CLIENT_ID` / `_SECRET`), or the client of
+//! an existing sign-in. See docs/GOOGLE_SETUP.md.
 
 use futures::future::join_all;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::time::{Duration, Instant};
+use base64::Engine;
+use rand::{distributions::Alphanumeric, Rng};
+use sha2::{Digest, Sha256};
+use std::io::{Read, Write};
+use std::net::TcpListener;
 use tauri::{AppHandle, Manager, State};
+use tauri_plugin_opener::OpenerExt;
 
 const API: &str = "https://www.googleapis.com/calendar/v3/";
 
@@ -57,40 +67,61 @@ fn token_path(app: &AppHandle) -> Result<std::path::PathBuf, String> {
     Ok(dir.join("google-token.json"))
 }
 
-const IMPORT_SCRIPT: &str = r#"
-import pickle, os, json
-c = pickle.load(open(os.path.expanduser("~/.local/share/gcalcli/oauth"), "rb"))
-print(json.dumps({"client_id": c.client_id, "client_secret": c.client_secret,
-                  "refresh_token": c.refresh_token, "token_uri": c.token_uri}))
-"#;
+/// Prefix on errors that mean "the user has to sign in (again)"; the UI shows the sign-in card.
+const SIGN_IN: &str = "SIGN_IN: ";
 
-/// Copy the login from gcalcli (one time).
-fn import_from_gcalcli() -> Result<StoredToken, String> {
-    let out = std::process::Command::new("python3")
-        .args(["-I", "-c", IMPORT_SCRIPT])
-        .output()
-        .map_err(|_| "Not logged in to Google (python3 not found to import the gcalcli login)".to_string())?;
-    if !out.status.success() {
-        return Err("Not logged in to Google - run: gcalcli init".into());
-    }
-    serde_json::from_slice(&out.stdout).map_err(|_| "Not logged in to Google - run: gcalcli init".to_string())
-}
-
-fn load_token(app: &AppHandle) -> Result<StoredToken, String> {
-    let path = token_path(app)?;
-    if let Ok(txt) = std::fs::read_to_string(&path) {
-        if let Ok(t) = serde_json::from_str::<StoredToken>(&txt) {
-            return Ok(t);
-        }
-    }
-    let tok = import_from_gcalcli()?;
-    std::fs::write(&path, serde_json::to_string(&tok).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+fn write_private(path: &std::path::Path, text: &str) -> Result<(), String> {
+    std::fs::write(path, text).map_err(|e| e.to_string())?;
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
+        let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600));
     }
-    Ok(tok)
+    Ok(())
+}
+
+fn client_path(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir.join("google-client.json"))
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+struct ClientConfig {
+    client_id: String,
+    client_secret: String,
+}
+
+/// Where the OAuth client comes from (see the module docs).
+fn client_config(app: &AppHandle) -> Result<ClientConfig, String> {
+    if let Ok(txt) = std::fs::read_to_string(client_path(app)?) {
+        if let Ok(c) = serde_json::from_str::<ClientConfig>(&txt) {
+            return Ok(c);
+        }
+    }
+    if let (Some(id), Some(secret)) = (option_env!("CALIBRE_GOOGLE_CLIENT_ID"), option_env!("CALIBRE_GOOGLE_CLIENT_SECRET")) {
+        return Ok(ClientConfig { client_id: id.into(), client_secret: secret.into() });
+    }
+    if let Ok(t) = read_token(app) {
+        return Ok(ClientConfig { client_id: t.client_id, client_secret: t.client_secret });
+    }
+    Err("No Google client configured. Create an OAuth client and put it in google-client.json (see docs/GOOGLE_SETUP.md).".into())
+}
+
+/// Remember the client so signing out and back in keeps working.
+fn remember_client(app: &AppHandle, c: &ClientConfig) {
+    if let Ok(p) = client_path(app) {
+        if !p.exists() {
+            if let Ok(txt) = serde_json::to_string(c) {
+                let _ = write_private(&p, &txt);
+            }
+        }
+    }
+}
+
+fn read_token(app: &AppHandle) -> Result<StoredToken, String> {
+    let txt = std::fs::read_to_string(token_path(app)?).map_err(|_| format!("{SIGN_IN}Not signed in to Google"))?;
+    serde_json::from_str::<StoredToken>(&txt).map_err(|_| format!("{SIGN_IN}Not signed in to Google"))
 }
 
 async fn access_token(app: &AppHandle, st: &GoogleState) -> Result<String, String> {
@@ -100,12 +131,7 @@ async fn access_token(app: &AppHandle, st: &GoogleState) -> Result<String, Strin
             return Ok(t.clone());
         }
     }
-    let tok = {
-        let app = app.clone();
-        tauri::async_runtime::spawn_blocking(move || load_token(&app))
-            .await
-            .map_err(|e| e.to_string())??
-    };
+    let tok = read_token(app)?;
     let resp = st
         .client
         .post(&tok.token_uri)
@@ -122,7 +148,7 @@ async fn access_token(app: &AppHandle, st: &GoogleState) -> Result<String, Strin
     let body: Value = resp.json().await.map_err(|e| e.to_string())?;
     if !ok {
         return Err(if body["error"] == "invalid_grant" {
-            "Google login expired - run: gcalcli init".into()
+            format!("{SIGN_IN}Google sign-in expired - please sign in again")
         } else {
             format!("Google sign-in failed: {}", body["error_description"].as_str().unwrap_or("unknown error"))
         });
@@ -329,4 +355,204 @@ pub async fn google_create(app: AppHandle, st: State<'_, GoogleState>, args: New
     }
     let created: Value = resp.json().await.map_err(|e| e.to_string())?;
     map_event(&created, &args.calendar_id).ok_or_else(|| "unexpected response from Google".to_string())
+}
+
+// ---------------------------------------------------------------------------------------------
+// Sign-in (OAuth 2.0 for installed apps: loopback redirect + PKCE)
+// ---------------------------------------------------------------------------------------------
+
+/// Is there a saved sign-in? (No network.)
+#[tauri::command]
+pub fn google_signed_in(app: AppHandle) -> bool {
+    read_token(&app).is_ok()
+}
+
+fn random_string(n: usize) -> String {
+    rand::thread_rng().sample_iter(&Alphanumeric).take(n).map(char::from).collect()
+}
+
+const DONE_PAGE: &str = "<!doctype html><meta charset=utf-8><title>calibre</title>\
+<body style=\"font:16px system-ui;background:#11131a;color:#e8ebf3;display:grid;place-items:center;height:100vh;margin:0\">\
+<div style=\"text-align:center\"><h2 style=\"margin:0 0 8px\">You're signed in</h2>\
+<p style=\"color:#8b93a7;margin:0\">You can close this tab and go back to calibre.</p></div>";
+
+/// Wait for Google's redirect on `listener`; returns the authorization code.
+fn wait_for_code(listener: TcpListener, expected_state: &str) -> Result<String, String> {
+    listener.set_nonblocking(true).map_err(|e| e.to_string())?;
+    let deadline = Instant::now() + Duration::from_secs(300);
+    loop {
+        if Instant::now() > deadline {
+            return Err("Sign-in timed out - please try again".into());
+        }
+        let mut stream = match listener.accept() {
+            Ok((s, _)) => s,
+            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                std::thread::sleep(Duration::from_millis(100));
+                continue;
+            }
+            Err(e) => return Err(e.to_string()),
+        };
+        stream.set_nonblocking(false).ok();
+        stream.set_read_timeout(Some(Duration::from_secs(5))).ok();
+        let mut buf = [0u8; 4096];
+        let n = stream.read(&mut buf).unwrap_or(0);
+        let req = String::from_utf8_lossy(&buf[..n]);
+        let path = req.lines().next().and_then(|l| l.split_whitespace().nth(1)).unwrap_or("/");
+        let url = match reqwest::Url::parse(&format!("http://127.0.0.1{path}")) {
+            Ok(u) => u,
+            Err(_) => continue,
+        };
+        let params: std::collections::HashMap<String, String> = url.query_pairs().map(|(k, v)| (k.into_owned(), v.into_owned())).collect();
+        let respond = |stream: &mut std::net::TcpStream, body: &str| {
+            let _ = write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\nContent-Length: {}\r\n\r\n{}", body.len(), body);
+        };
+        // browsers also poke /favicon.ico and open idle connections: ignore anything without a result
+        if let Some(err) = params.get("error") {
+            respond(&mut stream, "<!doctype html><meta charset=utf-8><body style=\"font:16px system-ui\">Sign-in was cancelled. You can close this tab.");
+            return Err(if err == "access_denied" { "Sign-in was cancelled".into() } else { format!("Google sign-in failed: {err}") });
+        }
+        if let Some(code) = params.get("code") {
+            if params.get("state").map(String::as_str) != Some(expected_state) {
+                respond(&mut stream, "<!doctype html><body>Invalid sign-in response.");
+                return Err("Sign-in response did not match the request - please try again".into());
+            }
+            respond(&mut stream, DONE_PAGE);
+            return Ok(code.clone());
+        }
+        respond(&mut stream, "<!doctype html><body>calibre is waiting for Google...");
+    }
+}
+
+#[tauri::command]
+pub async fn google_sign_in(app: AppHandle, st: State<'_, GoogleState>) -> Result<(), String> {
+    let client = client_config(&app)?;
+
+    // PKCE + CSRF state
+    let verifier = random_string(64);
+    let challenge = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(Sha256::digest(verifier.as_bytes()));
+    let state = random_string(24);
+
+    let listener = TcpListener::bind("127.0.0.1:0").map_err(|e| format!("Couldn't start the sign-in listener: {e}"))?;
+    let port = listener.local_addr().map_err(|e| e.to_string())?.port();
+    let redirect = format!("http://127.0.0.1:{port}");
+
+    let auth_url = reqwest::Url::parse_with_params(
+        "https://accounts.google.com/o/oauth2/v2/auth",
+        &[
+            ("client_id", client.client_id.as_str()),
+            ("redirect_uri", redirect.as_str()),
+            ("response_type", "code"),
+            ("scope", "https://www.googleapis.com/auth/calendar"),
+            ("code_challenge", challenge.as_str()),
+            ("code_challenge_method", "S256"),
+            ("state", state.as_str()),
+            ("access_type", "offline"),
+            ("prompt", "consent"),
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+
+    app.opener()
+        .open_url(auth_url.as_str(), None::<&str>)
+        .map_err(|e| format!("Couldn't open your browser ({e}). Open this link yourself: {auth_url}"))?;
+
+    let expected = state.clone();
+    let code = tauri::async_runtime::spawn_blocking(move || wait_for_code(listener, &expected))
+        .await
+        .map_err(|e| e.to_string())??;
+
+    let resp = st
+        .client
+        .post("https://oauth2.googleapis.com/token")
+        .form(&[
+            ("code", code.as_str()),
+            ("client_id", client.client_id.as_str()),
+            ("client_secret", client.client_secret.as_str()),
+            ("redirect_uri", redirect.as_str()),
+            ("grant_type", "authorization_code"),
+            ("code_verifier", verifier.as_str()),
+        ])
+        .send()
+        .await
+        .map_err(friendly)?;
+    let ok = resp.status().is_success();
+    let body: Value = resp.json().await.map_err(|e| e.to_string())?;
+    if !ok {
+        return Err(format!("Google sign-in failed: {}", body["error_description"].as_str().unwrap_or("token exchange failed")));
+    }
+    let refresh = body["refresh_token"].as_str().ok_or("Google didn't return a refresh token - please try again")?.to_string();
+    let access = body["access_token"].as_str().ok_or("no access token in response")?.to_string();
+    let ttl = body["expires_in"].as_u64().unwrap_or(3000).saturating_sub(60);
+
+    let tok = StoredToken {
+        client_id: client.client_id.clone(),
+        client_secret: client.client_secret.clone(),
+        refresh_token: refresh,
+        token_uri: default_token_uri(),
+    };
+    write_private(&token_path(&app)?, &serde_json::to_string(&tok).map_err(|e| e.to_string())?)?;
+    remember_client(&app, &client);
+    *st.access.lock().await = Some((access, Instant::now() + Duration::from_secs(ttl)));
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn google_sign_out(app: AppHandle, st: State<'_, GoogleState>) -> Result<(), String> {
+    if let Ok(tok) = read_token(&app) {
+        remember_client(&app, &ClientConfig { client_id: tok.client_id.clone(), client_secret: tok.client_secret.clone() });
+        // best effort: tell Google to forget this grant
+        let _ = st.client.post("https://oauth2.googleapis.com/revoke").form(&[("token", tok.refresh_token.as_str())]).send().await;
+    }
+    let _ = std::fs::remove_file(token_path(&app)?);
+    *st.access.lock().await = None;
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::TcpStream;
+
+    /// Send one raw HTTP request to `port`, return the response text.
+    fn request(port: u16, line: &str) -> String {
+        let mut s = TcpStream::connect(("127.0.0.1", port)).unwrap();
+        write!(s, "{line}\r\nHost: x\r\n\r\n").unwrap();
+        let mut out = String::new();
+        s.read_to_string(&mut out).unwrap();
+        out
+    }
+
+    fn run(requests: Vec<&'static str>, state: &'static str) -> (Result<String, String>, Vec<String>) {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let waiter = std::thread::spawn(move || wait_for_code(listener, state));
+        let replies: Vec<String> = requests.into_iter().map(|r| request(port, r)).collect();
+        (waiter.join().unwrap(), replies)
+    }
+
+    #[test]
+    fn returns_the_code_and_ignores_favicon_requests() {
+        let (res, replies) = run(vec!["GET /favicon.ico HTTP/1.1", "GET /?code=abc123&state=xyz HTTP/1.1"], "xyz");
+        assert_eq!(res.unwrap(), "abc123");
+        assert!(replies[1].contains("You're signed in"));
+    }
+
+    #[test]
+    fn rejects_a_mismatched_state() {
+        let (res, _) = run(vec!["GET /?code=abc&state=evil HTTP/1.1"], "xyz");
+        assert!(res.unwrap_err().contains("did not match"));
+    }
+
+    #[test]
+    fn reports_a_cancelled_sign_in() {
+        let (res, _) = run(vec!["GET /?error=access_denied&state=xyz HTTP/1.1"], "xyz");
+        assert_eq!(res.unwrap_err(), "Sign-in was cancelled");
+    }
+
+    #[test]
+    fn pkce_challenge_matches_the_rfc_example() {
+        // RFC 7636 appendix B
+        let c = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(Sha256::digest(b"dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"));
+        assert_eq!(c, "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM");
+    }
 }

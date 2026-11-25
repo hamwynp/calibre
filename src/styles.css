@@ -171,3 +171,14 @@ kbd { font: 600 10.5px/1 ui-monospace, "SF Mono", "JetBrains Mono", monospace; b
 .card.picker { width: 340px; }
 #picker-list { display: flex; flex-direction: column; gap: 2px; max-height: 60vh; overflow-y: auto; }
 .cal-row.cur { background: color-mix(in srgb, var(--accent) 16%, transparent); outline: 1px solid var(--accent); }
+
+/* sign-in card + sidebar footer */
+.card.signin { width: 380px; gap: 12px; }
+.card.signin p { margin: 0; color: var(--sub); font-size: 12.5px; line-height: 1.5; }
+.card.signin button { height: 36px; border-radius: 10px; border: 0; background: var(--accent); color: #11131a; font: inherit; font-weight: 600; cursor: pointer; }
+.card.signin button:disabled { opacity: 0.6; cursor: default; }
+.side-foot { margin-top: auto; display: flex; align-items: center; gap: 8px; padding: 8px 4px 0; font-size: 11px; color: var(--sub); border-top: 1px solid var(--border); }
+.side-foot span { flex: 1; }
+.side-foot button { background: none; border: 0; color: var(--sub); font: inherit; font-size: 11px; cursor: pointer; padding: 2px 6px; border-radius: 6px; }
+.side-foot button:hover { background: color-mix(in srgb, var(--text) 10%, transparent); color: var(--text); }
+.side-foot button.confirm { color: var(--red); }

@@ -17,6 +17,12 @@ export interface SideCtx {
   onMiniStep: (delta: number) => void;
   onToggleCalendar: (id: string) => void;
   onToggleSection: (name: string) => void;
+  /** Present when the provider has a sign-in: shows "Sign out" at the bottom. */
+  onSignOut?: () => void;
+  /** Label for the footer, e.g. "Google Calendar". */
+  accountLabel?: string;
+  /** True while a sign-out confirmation is pending. */
+  confirmSignOut?: boolean;
 }
 
 const CHECK = '<svg viewBox="0 0 12 12"><path d="M2.5 6.2l2.4 2.4 4.6-5"/></svg>';
@@ -89,5 +95,13 @@ export function renderSidebar(ctx: SideCtx): void {
     mine.append(body);
   }
 
-  root.replaceChildren(mini, mine);
+  const nodes: HTMLElement[] = [mini, mine];
+  if (ctx.onSignOut) {
+    const foot = el("div", "side-foot");
+    const out = el("button", ctx.confirmSignOut ? "confirm" : "", ctx.confirmSignOut ? "Click again to sign out" : "Sign out");
+    out.addEventListener("click", ctx.onSignOut);
+    foot.append(el("span", "", ctx.accountLabel ?? ""), out);
+    nodes.push(foot);
+  }
+  root.replaceChildren(...nodes);
 }

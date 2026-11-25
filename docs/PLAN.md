@@ -7,8 +7,8 @@
 - [x] `h`/`l` change week (jumps to 12am), `t` today, `j`/`k` scroll
 - [x] Recurring events (daily / weekdays / weekly / monthly / yearly, until or N times)
 - [x] `Ctrl+/` help for each screen
-- [x] Google sync (reuses the gcalcli login for now): calendars, events, create incl. repeats
-- [ ] Built-in Google sign-in (OAuth desktop flow) so gcalcli isn't needed
+- [x] Google sync: calendars, events, create incl. repeats
+- [x] Built-in Google sign-in (OAuth loopback + PKCE), sign-out; setup in docs/GOOGLE_SETUP.md
 - [x] `a` add-event form: title, date, start, length, calendar dropdown, repeat
 - [x] Draft saved to disk until the event is added
 

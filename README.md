@@ -41,11 +41,11 @@ the UI currently runs on `DemoProvider` (`src/demo.ts`).
 
 ## Google sync
 
-For now calibre reuses the login that [gcalcli](https://github.com/insanum/gcalcli) already has
-(`gcalcli init`): on first launch it copies the OAuth client and refresh token into its own data
-folder (`~/.local/share/dev.calibre.app/google-token.json`, owner-only) and talks to the Google
-Calendar API directly from then on. A built-in sign-in flow will replace this. Without a login (for
-example in a plain browser during development) the app shows demo data instead.
+calibre has its own **Sign in with Google** (a browser opens, you approve, done). It needs an OAuth
+client; see [docs/GOOGLE_SETUP.md](docs/GOOGLE_SETUP.md) (about five minutes, one time). The sign-in
+is stored in calibre's data folder (`google-token.json`, owner-only) and the app talks to the Google
+Calendar API directly. Without Tauri (for example in a plain browser during development) the app
+shows demo data instead.
 
 If Google is blocked on your network, turn your VPN on. The header shows why a sync failed.
 

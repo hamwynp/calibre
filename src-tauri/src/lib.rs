@@ -9,6 +9,9 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .manage(google::GoogleState::new())
         .invoke_handler(tauri::generate_handler![
+            google::google_signed_in,
+            google::google_sign_in,
+            google::google_sign_out,
             google::google_calendars,
             google::google_events,
             google::google_create,

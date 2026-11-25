@@ -82,6 +82,23 @@ export class GoogleProvider implements CalendarProvider {
     this.cb = cb;
   }
 
+  readonly auth = {
+    signedIn: () => invoke<boolean>("google_signed_in"),
+    signIn: async () => {
+      await invoke("google_sign_in");
+    },
+    signOut: async () => {
+      await invoke("google_sign_out");
+      this.win = null;
+      this.cals = [];
+      try {
+        localStorage.removeItem(SNAPSHOT);
+      } catch {
+        /* ignore */
+      }
+    },
+  };
+
   async listCalendars(): Promise<Calendar[]> {
     this.cals = await invoke<CalDto[]>("google_calendars");
     return this.cals;

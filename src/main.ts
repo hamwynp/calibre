@@ -5,6 +5,7 @@ import { addDays, hoursOf, mondayOf, monthName, startOfDay, weekTitle, DAYS, sam
 import { hourPx, renderGrid, resetZoom, stepZoom, stripHeight } from "./grid";
 import { renderSidebar } from "./sidebar";
 import { createPicker } from "./picker";
+import { createSignIn } from "./signin";
 import { monthCells, renderMonth } from "./month";
 import { buildRows, renderList, type ListRow } from "./list";
 import { DemoProvider } from "./demo";
@@ -45,6 +46,48 @@ let lastAnchorMonth = `${anchor.getFullYear()}-${anchor.getMonth()}`;
 const scroller = $<HTMLDivElement>("scroll");
 const colorOf = (ev: CalEvent): string => calendars.find((c) => c.id === ev.calendarId)?.color ?? "#8b93a7";
 const today = (): Date => startOfDay(new Date());
+
+// ---------- errors / sign-in ----------
+const msgOf = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+
+/** Errors starting with "SIGN_IN:" open the sign-in card; everything else shows in the header. */
+function showError(e: unknown): void {
+  const m = msgOf(e);
+  if (m.startsWith("SIGN_IN: ")) {
+    $("calerr").textContent = "";
+    signin.open(m);
+    return;
+  }
+  $("calerr").textContent = "⚠ " + m;
+}
+
+const signin = createSignIn({
+  signIn: async () => provider.auth?.signIn(),
+  onDone: () => void refreshAll(),
+});
+
+let confirmSignOut = false;
+let confirmTimer = 0;
+function signOutClicked(): void {
+  if (!confirmSignOut) {
+    confirmSignOut = true;
+    clearTimeout(confirmTimer);
+    confirmTimer = window.setTimeout(() => {
+      confirmSignOut = false;
+      render("keep");
+    }, 3000);
+    render("keep");
+    return;
+  }
+  confirmSignOut = false;
+  clearTimeout(confirmTimer);
+  void provider.auth?.signOut().then(() => {
+    events = [];
+    calendars = [];
+    render("keep");
+    signin.open("You're signed out. Sign in again to see your calendar.");
+  });
+}
 
 // ---------- what range does each view need? ----------
 function weekDays(): Date[] {
@@ -129,6 +172,9 @@ function render(mode: ScrollMode): void {
         render("keep");
       },
       onToggleCalendar: toggleCalendar,
+      onSignOut: provider.auth ? signOutClicked : undefined,
+      accountLabel: provider.name,
+      confirmSignOut,
       onToggleSection: (name) => {
         if (collapsed.has(name)) collapsed.delete(name);
         else collapsed.add(name);
@@ -173,7 +219,7 @@ async function load(mode: ScrollMode): Promise<void> {
     events = evs;
     $("calerr").textContent = "";
   } catch (e) {
-    if (seq === loadSeq) $("calerr").textContent = "⚠ " + (e instanceof Error ? e.message : String(e));
+    if (seq === loadSeq) showError(e);
   } finally {
     syncing--;
   }
@@ -311,7 +357,7 @@ document.addEventListener(
 );
 
 document.addEventListener("keydown", (e) => {
-  if (form.isOpen() || picker.isOpen() || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (form.isOpen() || picker.isOpen() || signin.isOpen() || e.ctrlKey || e.metaKey || e.altKey) return;
   const t = e.target as HTMLElement | null;
   if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
   const scrollable = view === "week" || view === "day";
@@ -363,7 +409,7 @@ async function refreshAll(): Promise<void> {
   try {
     calendars = await provider.listCalendars();
   } catch (e) {
-    $("calerr").textContent = "⚠ " + (e instanceof Error ? e.message : String(e));
+    showError(e);
   }
   await load("keep");
 }
@@ -385,10 +431,15 @@ for (const ev of ["wheel", "keydown", "mousedown"]) document.addEventListener(ev
 
 void (async () => {
   void refreshTasks();
+  if (provider.auth && !(await provider.auth.signedIn())) {
+    signin.open();
+    render("now");
+    return;
+  }
   try {
     calendars = await provider.listCalendars();
   } catch (e) {
-    $("calerr").textContent = "⚠ " + (e instanceof Error ? e.message : String(e));
+    showError(e);
   }
   await load("now");
   for (const ms of [60, 250, 700]) setTimeout(() => !touched && view === "week" && showsToday() && render("now"), ms);
