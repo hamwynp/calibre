@@ -1,4 +1,4 @@
-import type { CalEvent, Calendar, CalendarProvider, NewEvent, Recurrence } from "./types";
+import type { CalEvent, Calendar, CalendarProvider, EditPatch, EditScope, EditSource, NewEvent, Recurrence } from "./types";
 import { occurrenceStarts } from "./recurrence";
 import { addDays, mondayOf } from "./dates";
 
@@ -19,9 +19,11 @@ interface Stored {
   end: string;
   allDay: boolean;
   recurrence?: { freq: Recurrence["freq"]; interval: number; until?: string | null; count?: number | null };
+  /** Start times (ms) of occurrences that were edited on their own or removed. */
+  exceptions?: number[];
 }
 
-type Base = CalEvent & { recurrence?: Recurrence };
+type Base = CalEvent & { recurrence?: Recurrence; exceptions?: number[] };
 
 function at(day: Date, h: number, m = 0): Date {
   return new Date(day.getFullYear(), day.getMonth(), day.getDate(), h, m);
@@ -100,6 +102,7 @@ export class DemoProvider implements CalendarProvider {
         const end = e.allDay ? new Date(st.getFullYear(), st.getMonth(), st.getDate(), 0, 0) : new Date(st.getTime() + len);
         const dayLen = e.allDay ? Math.round(len / 86_400_000) : 0;
         const finish = e.allDay ? addDays(end, dayLen) : end;
+        if (e.exceptions?.includes(st.getTime())) continue;
         if (finish > from && st < to) out.push({ ...e, id: e.id + "@" + st.getTime(), start: st, end: finish, recurring: true });
       }
     }
@@ -112,5 +115,33 @@ export class DemoProvider implements CalendarProvider {
     this.save();
     return created;
   }
-}
 
+  private baseOf(ev: CalEvent): Base | undefined {
+    return this.events.find((e) => e.id === ev.id.split("@")[0]);
+  }
+
+  async loadForEdit(ev: CalEvent): Promise<EditSource> {
+    const one = { start: ev.start, end: ev.end, allDay: ev.allDay };
+    const base = this.baseOf(ev);
+    if (!base?.recurrence) return { one };
+    return { one, series: { id: base.id, start: base.start, end: base.end, allDay: base.allDay, rule: { rec: base.recurrence, exotic: false } } };
+  }
+
+  async updateEvent(ev: CalEvent, src: EditSource, patch: EditPatch, scope: EditScope): Promise<void> {
+    const base = this.baseOf(ev);
+    if (!base) throw new Error("That event no longer exists");
+    if (src.series && scope === "one") {
+      // detach this occurrence: skip it in the series and add it as its own event
+      (base.exceptions ??= []).push(ev.start.getTime());
+      this.events.push({ id: "d" + Date.now() + Math.random().toString(36).slice(2, 6), title: patch.title, calendarId: base.calendarId, start: patch.start, end: patch.end, allDay: patch.allDay });
+    } else {
+      Object.assign(base, { title: patch.title, start: patch.start, end: patch.end, allDay: patch.allDay });
+      if (patch.recurrence !== "keep") {
+        const rec = patch.recurrence.rec;
+        if (rec) base.recurrence = rec;
+        else delete base.recurrence;
+      }
+    }
+    this.save();
+  }
+}

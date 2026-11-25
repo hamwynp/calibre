@@ -62,6 +62,8 @@ export interface GridCtx {
   now: Date;
   /** Show the Shamsi day under each date. */
   shamsi?: boolean;
+  /** Right-click on an event. */
+  onEventMenu?: (ev: CalEvent, x: number, y: number) => void;
 }
 
 /**
@@ -70,7 +72,7 @@ export interface GridCtx {
  * the "now" line. Returns the strip height (px) so callers can scroll to "now".
  */
 export function renderGrid(ctx: GridCtx): number {
-  const { days, events, tasks, colorOf, now, shamsi } = ctx;
+  const { days, events, tasks, colorOf, now, shamsi, onEventMenu } = ctx;
   const dayhead = $<HTMLDivElement>("dayhead");
   const inner = $<HTMLDivElement>("inner");
   const HOUR = hourPx();
@@ -110,6 +112,8 @@ export function renderGrid(ctx: GridCtx): number {
         } else {
           c.style.background = it.color;
           c.textContent = (it.recurring ? "↻ " : "") + it.title;
+          const ev = it.ev;
+          if (ev) c.addEventListener("contextmenu", (e) => (e.preventDefault(), onEventMenu?.(ev, e.clientX, e.clientY)));
         }
         cell.append(c);
       }
@@ -151,6 +155,8 @@ export function renderGrid(ctx: GridCtx): number {
       } else {
         b.append(el("b", "", (it.recurring ? "↻ " : "") + it.title));
         if ((it.e - it.s) * HOUR >= 34) b.append(el("small", "", it.sub));
+        const ev = it.ev;
+        if (ev) b.addEventListener("contextmenu", (e) => (e.preventDefault(), onEventMenu?.(ev, e.clientX, e.clientY)));
       }
       col.append(b);
     }

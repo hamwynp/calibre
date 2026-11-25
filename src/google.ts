@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { CalEvent, Calendar, CalendarProvider, NewEvent } from "./types";
+import type { CalEvent, Calendar, CalendarProvider, EditPatch, EditScope, EditSource, NewEvent } from "./types";
 import { addDays, fmtKey, pad2 } from "./dates";
-import { toRRule } from "./recurrence";
+import { parseRRule, toRRule } from "./recurrence";
 
 interface CalDto {
   id: string;
@@ -40,7 +40,18 @@ const toEvent = (d: EventDto): CalEvent => ({
   end: parse(d.end, d.allDay),
   allDay: d.allDay,
   recurring: d.recurring,
+  eventId: d.id,
 });
+
+interface DetailDto {
+  start: string;
+  end: string;
+  allDay: boolean;
+  series: { id: string; start: string; end: string; allDay: boolean; recurrence: string | null } | null;
+}
+
+/** Local wall-clock time Google's API takes alongside a timeZone. */
+const localStamp = (d: Date): string => `${fmtKey(d)}T${pad2(d.getHours())}:${pad2(d.getMinutes())}:00`;
 
 interface Win {
   from: Date;
@@ -142,7 +153,7 @@ export class GoogleProvider implements CalendarProvider {
   }
 
   async createEvent(ev: NewEvent): Promise<CalEvent> {
-    const local = (d: Date) => `${fmtKey(d)}T${pad2(d.getHours())}:${pad2(d.getMinutes())}:00`;
+    const local = localStamp;
     const dto = await invoke<EventDto>("google_create", {
       args: {
         calendarId: ev.calendarId,
@@ -156,5 +167,36 @@ export class GoogleProvider implements CalendarProvider {
     });
     if (this.win) await this.fetchWindow(this.win.from, this.win.to);
     return toEvent(dto);
+  }
+
+  async loadForEdit(ev: CalEvent): Promise<EditSource> {
+    const d = await invoke<DetailDto>("google_event_detail", { calendarId: ev.calendarId, eventId: ev.eventId });
+    const one = { start: parse(d.start, d.allDay), end: parse(d.end, d.allDay), allDay: d.allDay };
+    if (!d.series) return { one };
+    const sStart = parse(d.series.start, d.series.allDay);
+    return {
+      one,
+      series: { id: d.series.id, start: sStart, end: parse(d.series.end, d.series.allDay), allDay: d.series.allDay, rule: parseRRule(d.series.recurrence, sStart) },
+    };
+  }
+
+  async updateEvent(ev: CalEvent, src: EditSource, patch: EditPatch, scope: EditScope): Promise<void> {
+    const whole = scope === "all" && !!src.series;
+    const setRule = whole || !src.series; // a single occurrence can't change its repeat rule
+    const rec = patch.recurrence === "keep" ? null : patch.recurrence.rec;
+    await invoke("google_update", {
+      args: {
+        calendarId: ev.calendarId,
+        eventId: whole ? src.series!.id : ev.eventId,
+        title: patch.title,
+        allDay: patch.allDay,
+        start: patch.allDay ? fmtKey(patch.start) : localStamp(patch.start),
+        end: patch.allDay ? fmtKey(patch.end) : localStamp(patch.end),
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        setRecurrence: setRule && patch.recurrence !== "keep",
+        recurrence: rec ? toRRule(rec, patch.allDay) : null,
+      },
+    });
+    if (this.win) await this.fetchWindow(this.win.from, this.win.to);
   }
 }

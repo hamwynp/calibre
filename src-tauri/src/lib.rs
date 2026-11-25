@@ -15,6 +15,8 @@ pub fn run() {
             google::google_calendars,
             google::google_events,
             google::google_create,
+            google::google_event_detail,
+            google::google_update,
             tasks::tasks_pending
         ])
         .run(tauri::generate_context!())

@@ -31,6 +31,8 @@ npm run tauri dev     # desktop app
 npm run dev           # just the UI in a browser (http://localhost:1420)
 ```
 
+Right-click an event (week, day or list view; or press `e` in the list) to edit it: title, date, time, length and how often it repeats. For a repeating event you choose whether the change is for just that one or the whole series. New events always start as "Does not repeat" on the calendar you last added to.
+
 Press `Ctrl+/` in the app for the keyboard shortcuts of the current screen, and `Ctrl+I` for settings (Shamsi dates on/off, sidebar).
 
 ## Stack

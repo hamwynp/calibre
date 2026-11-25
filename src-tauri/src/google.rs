@@ -357,6 +357,132 @@ pub async fn google_create(app: AppHandle, st: State<'_, GoogleState>, args: New
     map_event(&created, &args.calendar_id).ok_or_else(|| "unexpected response from Google".to_string())
 }
 
+fn event_url(calendar_id: &str, event_id: &str) -> Result<reqwest::Url, String> {
+    let mut url = reqwest::Url::parse(&format!("{API}calendars/")).map_err(|e| e.to_string())?;
+    url.path_segments_mut()
+        .map_err(|_| "bad url".to_string())?
+        .pop_if_empty()
+        .push(calendar_id)
+        .push("events")
+        .push(event_id);
+    Ok(url)
+}
+
+async fn fetch_event(st: &GoogleState, token: &str, calendar_id: &str, event_id: &str) -> Result<Value, String> {
+    let resp = st.client.get(event_url(calendar_id, event_id)?).bearer_auth(token).send().await.map_err(friendly)?;
+    if !resp.status().is_success() {
+        return Err(api_error(resp).await);
+    }
+    resp.json().await.map_err(|e| e.to_string())
+}
+
+/// (start, end, all_day) of an event; start/end are RFC 3339 or `YYYY-MM-DD`.
+fn times_of(e: &Value) -> Option<(String, String, bool)> {
+    let (start, all_day) = match e["start"]["dateTime"].as_str() {
+        Some(s) => (s.to_string(), false),
+        None => (e["start"]["date"].as_str()?.to_string(), true),
+    };
+    let end = e["end"]["dateTime"].as_str().or(e["end"]["date"].as_str())?.to_string();
+    Some((start, end, all_day))
+}
+
+/// The first `RRULE:` line of an event, if it has one.
+fn rule_of(e: &Value) -> Option<String> {
+    e["recurrence"].as_array()?.iter().filter_map(|r| r.as_str()).find(|r| r.starts_with("RRULE:")).map(str::to_string)
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SeriesDto {
+    id: String,
+    start: String,
+    end: String,
+    all_day: bool,
+    recurrence: Option<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DetailDto {
+    start: String,
+    end: String,
+    all_day: bool,
+    /// Set when this event is an occurrence of a repeating event: the whole series.
+    series: Option<SeriesDto>,
+}
+
+/// What the edit form needs: this event's times and, for repeating events, the series.
+#[tauri::command]
+pub async fn google_event_detail(app: AppHandle, st: State<'_, GoogleState>, calendar_id: String, event_id: String) -> Result<DetailDto, String> {
+    let token = access_token(&app, &st).await?;
+    let e = fetch_event(&st, &token, &calendar_id, &event_id).await?;
+    let (start, end, all_day) = times_of(&e).ok_or_else(|| "unexpected response from Google".to_string())?;
+    let series = match e["recurringEventId"].as_str() {
+        Some(sid) => {
+            let m = fetch_event(&st, &token, &calendar_id, sid).await?;
+            let (s, en, ad) = times_of(&m).ok_or_else(|| "unexpected response from Google".to_string())?;
+            Some(SeriesDto { id: sid.to_string(), start: s, end: en, all_day: ad, recurrence: rule_of(&m) })
+        }
+        None => None,
+    };
+    Ok(DetailDto { start, end, all_day, series })
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateEventArgs {
+    calendar_id: String,
+    /// The event to change: an occurrence's id, or a series' id to change every occurrence.
+    event_id: String,
+    title: String,
+    all_day: bool,
+    /// `YYYY-MM-DD` (all-day) or local `YYYY-MM-DDTHH:MM:SS` (timed).
+    start: String,
+    end: String,
+    time_zone: String,
+    /// When false the repeat rule is left alone.
+    set_recurrence: bool,
+    /// New rule, e.g. `RRULE:FREQ=WEEKLY`; empty/None with `set_recurrence` stops it repeating.
+    recurrence: Option<String>,
+}
+
+#[tauri::command]
+pub async fn google_update(app: AppHandle, st: State<'_, GoogleState>, args: UpdateEventArgs) -> Result<(), String> {
+    let token = access_token(&app, &st).await?;
+    // The other of date / dateTime is nulled so an all-day event can become timed and back.
+    let mut body = if args.all_day {
+        json!({
+            "summary": args.title,
+            "start": { "date": args.start, "dateTime": null, "timeZone": null },
+            "end": { "date": args.end, "dateTime": null, "timeZone": null },
+        })
+    } else {
+        json!({
+            "summary": args.title,
+            "start": { "dateTime": args.start, "timeZone": args.time_zone, "date": null },
+            "end": { "dateTime": args.end, "timeZone": args.time_zone, "date": null },
+        })
+    };
+    if args.set_recurrence {
+        body["recurrence"] = match args.recurrence.filter(|r| !r.is_empty()) {
+            Some(r) => json!([r]),
+            None => Value::Null,
+        };
+    }
+    let resp = st
+        .client
+        .patch(event_url(&args.calendar_id, &args.event_id)?)
+        .bearer_auth(&token)
+        .json(&body)
+        .send()
+        .await
+        .map_err(friendly)?;
+    if !resp.status().is_success() {
+        return Err(api_error(resp).await);
+    }
+    Ok(())
+}
+
 // ---------------------------------------------------------------------------------------------
 // Sign-in (OAuth 2.0 for installed apps: loopback redirect + PKCE)
 // ---------------------------------------------------------------------------------------------

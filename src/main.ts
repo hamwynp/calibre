@@ -16,6 +16,7 @@ import { createSettings } from "./settings";
 import { loadCollapsed, loadDismissed, loadHiddenCalendars, loadSettings, loadSidebarShown, saveCollapsed, saveDismissed, saveHiddenCalendars, saveSettings, saveSidebarShown } from "./store";
 import { initForm } from "./form";
 import { createHelp } from "./help";
+import { menuOpen, showMenu } from "./contextmenu";
 import { $ } from "./ui";
 
 type View = "week" | "day" | "month" | "list";
@@ -198,7 +199,7 @@ function render(mode: ScrollMode): void {
   if (grid) {
     const keepTop = scroller.scrollTop;
     const days = view === "week" ? weekDays() : [anchor];
-    const stripH = renderGrid({ days, events: shown, tasks, colorOf, now, shamsi: settings.shamsi });
+    const stripH = renderGrid({ days, events: shown, tasks, colorOf, now, shamsi: settings.shamsi, onEventMenu: eventMenu });
     if (mode === "top") scroller.scrollTop = 0;
     else if (mode === "now") scroller.scrollTop = Math.max(0, stripH + hoursOf(now) * hourPx() - scroller.clientHeight / 2);
     else scroller.scrollTop = keepTop;
@@ -207,7 +208,7 @@ function render(mode: ScrollMode): void {
   } else {
     rows = buildRows(shown, tasks, dismissed, now, colorOf, "#a2cffe");
     cursor = Math.max(0, Math.min(cursor, rows.length - 1));
-    renderList({ rows, cursor, selected, tasks, now, onClick: (i) => ((cursor = i), render("keep")) });
+    renderList({ rows, cursor, selected, tasks, now, onClick: (i) => ((cursor = i), render("keep")), onMenu: eventMenu });
   }
 }
 
@@ -367,6 +368,21 @@ const settingsPanel = createSettings({
   },
 });
 
+// ---------- editing an event ----------
+/** Load what the form needs, then open it prefilled. */
+async function startEdit(ev: CalEvent): Promise<void> {
+  try {
+    form.openEdit(ev, await provider.loadForEdit(ev));
+  } catch (e) {
+    showError(e);
+  }
+}
+
+function eventMenu(ev: CalEvent, x: number, y: number): void {
+  const readOnly = calendars.find((c) => c.id === ev.calendarId)?.writable === false;
+  showMenu(x, y, [{ label: readOnly ? "Edit (read-only calendar)" : "Edit event…", disabled: readOnly, run: () => void startEdit(ev) }]);
+}
+
 const help = createHelp(() => (form.isOpen() ? "form" : picker.isOpen() ? "calendars" : view));
 
 // Ctrl+/ (or Ctrl+?) toggles the help; Esc closes it first. Capture phase so it works inside inputs too.
@@ -386,7 +402,7 @@ document.addEventListener(
 );
 
 document.addEventListener("keydown", (e) => {
-  if (form.isOpen() || picker.isOpen() || signin.isOpen() || settingsPanel.isOpen() || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (form.isOpen() || picker.isOpen() || signin.isOpen() || settingsPanel.isOpen() || menuOpen() || e.ctrlKey || e.metaKey || e.altKey) return;
   const t = e.target as HTMLElement | null;
   if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
   const scrollable = view === "week" || view === "day";
@@ -411,6 +427,11 @@ document.addEventListener("keydown", (e) => {
     case "x": if (view === "list") dismissSelectionOrCursor(); break;
     case "u": if (view === "list") undoDismiss(); break;
     case "Enter": if (view === "list") openRowInGoogle(); break;
+    case "e": {
+      const ev = view === "list" ? rows[cursor]?.ev : undefined;
+      if (ev) void startEdit(ev);
+      break;
+    }
     case "d":
       if (view === "list") dismissSelectionOrCursor();
       else setView(view === "day" ? "week" : "day");

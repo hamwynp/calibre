@@ -10,6 +10,7 @@ const COMMON: Row[] = [
   ["v", "Choose which calendars to show"],
   ["b", "Show / hide the sidebar"],
   ["a", "Add an event"],
+  ["Right-click", "Edit an event (week, day, list)"],
   ["Ctrl+I", "Settings (Shamsi calendar, sidebar)"],
   ["r", "Refresh from Google"],
   ["Ctrl+/", "Show / hide this help"],
@@ -78,6 +79,7 @@ const HELP: Record<HelpContext, Section[]> = {
         ["x \u00b7 d", "Dismiss selected / current"],
         ["u", "Undo dismiss"],
         ["Enter", "Open in Google Calendar"],
+        ["e", "Edit the event"],
         ["w \u00b7 s", "Week view"],
         ["m", "Month view"],
         ...COMMON,
@@ -98,9 +100,9 @@ const HELP: Record<HelpContext, Section[]> = {
   ],
   form: [
     {
-      title: "Add event",
+      title: "Add / edit event",
       rows: [
-        ["Enter", "Add the event"],
+        ["Enter", "Add / save the event"],
         ["Tab · Shift+Tab", "Next / previous field"],
         ["↑ ↓", "Move between fields"],
         ["Esc", "Close (draft is kept)"],
@@ -132,7 +134,7 @@ const HELP: Record<HelpContext, Section[]> = {
 function build(ctx: HelpContext): DocumentFragment {
   const frag = document.createDocumentFragment();
   const h3 = document.createElement("h3");
-  h3.textContent = "Shortcuts – " + (ctx === "form" ? "add event" : ctx);
+  h3.textContent = "Shortcuts – " + (ctx === "form" ? "add / edit event" : ctx);
   frag.append(h3);
   for (const sec of HELP[ctx]) {
     if (HELP[ctx].length > 1) {

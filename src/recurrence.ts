@@ -1,4 +1,4 @@
-import type { Recurrence } from "./types";
+import type { ParsedRule, Recurrence } from "./types";
 import { addDays, startOfDay } from "./dates";
 
 const MAX_DAYS = 36_600; // safety cap: ~100 years of day-by-day scanning
@@ -82,3 +82,53 @@ export const REPEAT_OPTIONS: { label: string; rec: Pick<Recurrence, "freq" | "in
   { label: "Every month", rec: { freq: "monthly", interval: 1 } },
   { label: "Every year", rec: { freq: "yearly", interval: 1 } },
 ];
+
+/** RRULE `UNTIL` ("20261231" or "20261231T205959Z") -> the local calendar day it falls on. */
+function parseUntil(v: string): Date | null {
+  const m = v.match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})Z?)?$/);
+  if (!m) return null;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  if (m[4] === undefined) return new Date(y, mo - 1, d);
+  const t = new Date(Date.UTC(y, mo - 1, d, Number(m[4]), Number(m[5]), Number(m[6])));
+  return new Date(t.getFullYear(), t.getMonth(), t.getDate());
+}
+
+const WEEKDAYS = "MO,TU,WE,TH,FR";
+const DAY_CODES = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+
+/**
+ * Read an RRULE line back into a Recurrence. Rules calibre cannot represent exactly
+ * (every 3 days, BYMONTHDAY, several weekdays...) come back with `exotic: true`.
+ * `start` is the series' first start: a weekly BYDAY of that same weekday is the plain weekly rule.
+ */
+export function parseRRule(line: string | null | undefined, start: Date): ParsedRule {
+  if (!line) return { rec: null, exotic: false };
+  const kv = new Map<string, string>();
+  for (const part of line.replace(/^RRULE:/i, "").split(";")) {
+    const [k, v] = part.split("=");
+    if (k && v !== undefined) kv.set(k.toUpperCase(), v.toUpperCase());
+  }
+  const freqName = kv.get("FREQ");
+  const freq = (["DAILY", "WEEKLY", "MONTHLY", "YEARLY"] as const).find((f) => f === freqName)?.toLowerCase() as Recurrence["freq"] | undefined;
+  if (!freq) return { rec: null, exotic: true };
+  const interval = Math.max(1, parseInt(kv.get("INTERVAL") ?? "1", 10) || 1);
+  const rec: Recurrence = { freq, interval };
+  let exotic = false;
+  for (const k of kv.keys()) if (!["FREQ", "INTERVAL", "COUNT", "UNTIL", "BYDAY", "WKST"].includes(k)) exotic = true;
+  const by = kv.get("BYDAY");
+  if (by) {
+    if (freq === "weekly" && by === WEEKDAYS && interval === 1) rec.freq = "weekdays";
+    else if (!(freq === "weekly" && by === DAY_CODES[start.getDay()])) exotic = true;
+  }
+  const count = kv.get("COUNT");
+  if (count) rec.count = parseInt(count, 10) || null;
+  const until = kv.get("UNTIL");
+  if (until) {
+    const u = parseUntil(until);
+    if (u) rec.until = u;
+    else exotic = true;
+  }
+  // only the intervals the Repeat list offers can be shown as-is
+  if (!REPEAT_OPTIONS.some((o) => o.rec && o.rec.freq === rec.freq && o.rec.interval === rec.interval)) exotic = true;
+  return { rec, exotic };
+}

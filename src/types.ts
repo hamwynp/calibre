@@ -28,6 +28,8 @@ export interface CalEvent {
   allDay: boolean;
   /** True when this is one occurrence of a repeating event. */
   recurring?: boolean;
+  /** The provider's own id for this event (Google: without the calendar prefix). */
+  eventId?: string;
 }
 
 export interface NewEvent {
@@ -37,6 +39,33 @@ export interface NewEvent {
   end: Date;
   allDay: boolean;
   recurrence?: Recurrence;
+}
+
+/** A repeat rule as read back from the provider. */
+export interface ParsedRule {
+  /** The rule in calibre's terms; null = does not repeat. */
+  rec: Recurrence | null;
+  /** True when the rule has parts calibre can't show (e.g. "every 3 days", BYMONTHDAY): it is kept unless changed. */
+  exotic: boolean;
+}
+
+/** What the edit form needs to know about an event. */
+export interface EditSource {
+  /** This exact event / occurrence. */
+  one: { start: Date; end: Date; allDay: boolean };
+  /** Present when the event repeats: the whole series (its first start and rule). */
+  series?: { id: string; start: Date; end: Date; allDay: boolean; rule: ParsedRule };
+}
+
+export type EditScope = "one" | "all";
+
+export interface EditPatch {
+  title: string;
+  start: Date;
+  end: Date;
+  allDay: boolean;
+  /** "keep" leaves the repeat rule alone; otherwise it is replaced (null = stop repeating). */
+  recurrence: "keep" | { rec: Recurrence | null };
 }
 
 export type Priority = "H" | "M" | "L" | "";
@@ -55,6 +84,10 @@ export interface CalendarProvider {
   listCalendars(): Promise<Calendar[]>;
   listEvents(from: Date, to: Date): Promise<CalEvent[]>;
   createEvent(ev: NewEvent): Promise<CalEvent>;
+  /** Fetch what the edit form needs (for repeating events: the series too). */
+  loadForEdit(ev: CalEvent): Promise<EditSource>;
+  /** Change an event; scope "one" = just this occurrence, "all" = the whole series. */
+  updateEvent(ev: CalEvent, src: EditSource, patch: EditPatch, scope: EditScope): Promise<void>;
   /** Register a callback for when fresher data arrived in the background. */
   onUpdate?(cb: () => void): void;
   /** Present for providers that need a sign-in (Google). */

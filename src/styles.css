@@ -199,3 +199,10 @@ kbd { font: 600 10.5px/1 ui-monospace, "SF Mono", "JetBrains Mono", monospace; b
 .dh.today .dsh { color: var(--accent); }
 .mini-head b small { display: block; margin-top: 1px; font-size: 10px; font-weight: 400; color: var(--accent); }
 .mini .d sup { position: absolute; right: 1px; bottom: 0; font-size: 7px; line-height: 1; color: var(--sub); pointer-events: none; }
+
+/* right-click menu */
+.ctxmenu { position: fixed; z-index: 30; min-width: 170px; padding: 5px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5); display: flex; flex-direction: column; }
+.ctxmenu button { background: none; border: 0; color: var(--text); font: inherit; font-size: 12.5px; text-align: left; padding: 7px 10px; border-radius: 6px; cursor: pointer; }
+.ctxmenu button:hover:not(:disabled), .ctxmenu button:focus-visible { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent); outline: none; }
+.ctxmenu button:disabled { color: var(--sub); cursor: default; }
+.ev:not(.tk), .chip.evt { cursor: context-menu; }

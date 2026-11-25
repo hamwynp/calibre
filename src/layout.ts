@@ -24,6 +24,7 @@ export interface StripItem {
   color: string;
   recurring: boolean;
   rank: number;
+  ev?: CalEvent;
 }
 
 
@@ -90,7 +91,7 @@ export function stripItems(events: CalEvent[], tasks: Task[], day: Date, colorOf
   const d = startOfDay(day);
   const out: StripItem[] = [];
   for (const ev of events) {
-    if (ev.allDay && ev.start <= d && ev.end > d) out.push({ kind: "ev", title: ev.title, color: colorOf(ev), recurring: !!ev.recurring, rank: 0 });
+    if (ev.allDay && ev.start <= d && ev.end > d) out.push({ kind: "ev", title: ev.title, color: colorOf(ev), recurring: !!ev.recurring, rank: 0, ev });
   }
   for (const t of tasks) {
     if (t.due && isDateOnly(t.due) && startOfDay(t.due).getTime() === d.getTime())

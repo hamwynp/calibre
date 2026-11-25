@@ -74,6 +74,8 @@ export interface ListState {
   tasks: Task[];
   now: Date;
   onClick: (i: number) => void;
+  /** Right-click on an event row. */
+  onMenu?: (ev: CalEvent, x: number, y: number) => void;
 }
 
 export function renderList(st: ListState): void {
@@ -110,6 +112,8 @@ export function renderList(st: ListState): void {
     body.append(el("b", "", r.title), el("span", "", r.sub));
     row.append(bar, date, body);
     row.addEventListener("click", () => st.onClick(i));
+    const ev = r.ev;
+    if (ev) row.addEventListener("contextmenu", (e) => (e.preventDefault(), st.onClick(i), st.onMenu?.(ev, e.clientX, e.clientY)));
     if (i === st.cursor) cursorEl = row;
     return row;
   });

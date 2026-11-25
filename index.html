@@ -52,7 +52,12 @@
 
     <div class="overlay" id="overlay" hidden>
       <form class="card" id="form" autocomplete="off">
-        <h2>New event</h2>
+        <h2 id="f-heading">New event</h2>
+        <div class="row" id="f-scope-row" hidden>
+          <span>Change</span>
+          <div class="select" id="f-scope" tabindex="0"><span id="f-scope-name"></span><i id="f-scope-caret">▾</i></div>
+        </div>
+        <ul class="options" id="f-scope-list" hidden></ul>
         <label class="row"><span>Title</span><input id="f-title" /></label>
         <label class="row"><span>Date</span><input id="f-date" /></label>
         <label class="row"><span>Start</span><input id="f-start" /></label>
@@ -62,7 +67,7 @@
           <div class="select" id="f-cal" tabindex="0"><span id="f-cal-name"></span><i id="f-cal-caret">▾</i></div>
         </div>
         <ul class="options" id="f-cal-list" hidden></ul>
-        <div class="row">
+        <div class="row" id="f-rep-row">
           <span>Repeat</span>
           <div class="select" id="f-rep" tabindex="0"><span id="f-rep-name"></span><i id="f-rep-caret">▾</i></div>
         </div>
