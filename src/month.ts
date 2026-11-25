@@ -100,7 +100,6 @@ export function renderMonth(ctx: MonthCtx): void {
     }
     grid.append(cell);
   }
-  root.classList.toggle("hascur", !!ctx.cursor);
   root.replaceChildren(head, grid);
   fitChips(grid);
 }
