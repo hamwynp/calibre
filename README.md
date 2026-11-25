@@ -14,7 +14,7 @@ An open-source, keyboard-first Google Calendar app that runs on any OS.
 - **Cross-platform**: Linux, macOS, Windows.
 - **Offline-friendly**: cache events, keep drafts, and sync when Google is reachable
   (works behind a VPN-only network).
-- **Open source** (GPL-3.0).
+- **Open source** (MIT).
 
 ## Origin
 
