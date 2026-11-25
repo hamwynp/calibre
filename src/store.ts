@@ -63,3 +63,30 @@ export function saveSidebarShown(v: boolean): void {
     /* ignore */
   }
 }
+
+// ---------- settings (Ctrl+I) ----------
+const SETTINGS_KEY = "calibre.settings";
+
+export interface Settings {
+  /** Show Shamsi (Jalali) dates next to the Gregorian ones. */
+  shamsi: boolean;
+}
+
+export const DEFAULT_SETTINGS: Settings = { shamsi: true };
+
+export function loadSettings(): Settings {
+  try {
+    const raw = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}") as Partial<Settings>;
+    return { shamsi: typeof raw.shamsi === "boolean" ? raw.shamsi : DEFAULT_SETTINGS.shamsi };
+  } catch {
+    return { ...DEFAULT_SETTINGS };
+  }
+}
+
+export function saveSettings(s: Settings): void {
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+  } catch {
+    /* ignore */
+  }
+}

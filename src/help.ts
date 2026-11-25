@@ -10,6 +10,7 @@ const COMMON: Row[] = [
   ["v", "Choose which calendars to show"],
   ["b", "Show / hide the sidebar"],
   ["a", "Add an event"],
+  ["Ctrl+I", "Settings (Shamsi calendar, sidebar)"],
   ["r", "Refresh from Google"],
   ["Ctrl+/", "Show / hide this help"],
 ];

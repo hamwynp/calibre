@@ -11,6 +11,7 @@ export interface MonthCtx {
   tasks: Task[];
   colorOf: (ev: CalEvent) => string;
   now: Date;
+  shamsi: boolean;
   /** Clicking a day cell. */
   onPick: (d: Date) => void;
 }
@@ -44,7 +45,8 @@ export function renderMonth(ctx: MonthCtx): void {
     cell.addEventListener("click", () => ctx.onPick(d));
 
     const stack = el("div", "mstack" + (today ? " today" : ""));
-    stack.append(el("span", "mnum", String(d.getDate())), el("span", "msham", String(jalaliOf(d)[2])));
+    stack.append(el("span", "mnum", String(d.getDate())));
+    if (ctx.shamsi) stack.append(el("span", "msham", String(jalaliOf(d)[2])));
     cell.append(stack);
 
     const balls = dayBalls(byDay.get(dayKey(d)), ctx.now).reverse();

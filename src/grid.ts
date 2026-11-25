@@ -1,3 +1,4 @@
+import { jalaliOf } from "./jalali";
 import type { CalEvent, Task } from "./types";
 import { DAYS, fmtTime, hoursOf, sameDay } from "./dates";
 import { stripItems, timedItems } from "./layout";
@@ -59,6 +60,8 @@ export interface GridCtx {
   tasks: Task[];
   colorOf: (ev: CalEvent) => string;
   now: Date;
+  /** Show the Shamsi day under each date. */
+  shamsi?: boolean;
 }
 
 /**
@@ -67,7 +70,7 @@ export interface GridCtx {
  * the "now" line. Returns the strip height (px) so callers can scroll to "now".
  */
 export function renderGrid(ctx: GridCtx): number {
-  const { days, events, tasks, colorOf, now } = ctx;
+  const { days, events, tasks, colorOf, now, shamsi } = ctx;
   const dayhead = $<HTMLDivElement>("dayhead");
   const inner = $<HTMLDivElement>("inner");
   const HOUR = hourPx();
@@ -80,6 +83,7 @@ export function renderGrid(ctx: GridCtx): number {
   for (const d of days) {
     const h = el("div", "dh" + (sameDay(d, now) ? " today" : ""), DAYS[d.getDay()]);
     h.append(el("b", "", String(d.getDate())));
+    if (shamsi) h.append(el("span", "dsh", String(jalaliOf(d)[2])));
     dayhead.append(h);
   }
 

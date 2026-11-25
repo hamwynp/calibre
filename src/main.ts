@@ -12,7 +12,8 @@ import { DemoProvider } from "./demo";
 import { GoogleProvider } from "./google";
 import { inTauri, loadTasks } from "./tasks";
 import { jalaliMonthLabel } from "./jalali";
-import { loadCollapsed, loadDismissed, loadHiddenCalendars, loadSidebarShown, saveCollapsed, saveDismissed, saveHiddenCalendars, saveSidebarShown } from "./store";
+import { createSettings } from "./settings";
+import { loadCollapsed, loadDismissed, loadHiddenCalendars, loadSettings, loadSidebarShown, saveCollapsed, saveDismissed, saveHiddenCalendars, saveSettings, saveSidebarShown } from "./store";
 import { initForm } from "./form";
 import { createHelp } from "./help";
 import { $ } from "./ui";
@@ -40,6 +41,7 @@ let rows: ListRow[] = [];
 let hidden = loadHiddenCalendars();
 let collapsed = loadCollapsed();
 let sidebarShown = loadSidebarShown();
+let settings = loadSettings();
 let miniMonth = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
 let lastAnchorMonth = `${anchor.getFullYear()}-${anchor.getMonth()}`;
 
@@ -124,6 +126,14 @@ function offsetLabel(): string {
   return n === 0 ? "" : `${n > 0 ? "+" : ""}${n}${unit}`;
 }
 
+/** Shamsi month name(s) the visible range covers. */
+function subtitleFor(): string {
+  if (view === "month") return jalaliMonthLabel(new Date(anchor.getFullYear(), anchor.getMonth(), 1), new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0));
+  if (view === "week") return jalaliMonthLabel(mondayOf(anchor), addDays(mondayOf(anchor), 6));
+  if (view === "day") return jalaliMonthLabel(anchor, anchor);
+  return "";
+}
+
 function titleFor(): string {
   if (view === "week") return weekTitle(mondayOf(anchor));
   if (view === "day") return `${DAYS[anchor.getDay()]}, ${monthName(anchor.getMonth())} ${anchor.getDate()}, ${anchor.getFullYear()}`;
@@ -143,7 +153,7 @@ function render(mode: ScrollMode): void {
   $("monthview").hidden = view !== "month";
   $("listview").hidden = view !== "list";
   $("title").textContent = titleFor();
-  $("subtitle").textContent = view === "month" ? jalaliMonthLabel(new Date(anchor.getFullYear(), anchor.getMonth(), 1), new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0)) : "";
+  $("subtitle").textContent = settings.shamsi ? subtitleFor() : "";
   const off = offsetLabel();
   const pill = $("weekhint");
   pill.hidden = off === "";
@@ -163,6 +173,7 @@ function render(mode: ScrollMode): void {
       view,
       mini: miniMonth,
       now,
+      shamsi: settings.shamsi,
       calendars,
       hidden,
       collapsed,
@@ -187,12 +198,12 @@ function render(mode: ScrollMode): void {
   if (grid) {
     const keepTop = scroller.scrollTop;
     const days = view === "week" ? weekDays() : [anchor];
-    const stripH = renderGrid({ days, events: shown, tasks, colorOf, now });
+    const stripH = renderGrid({ days, events: shown, tasks, colorOf, now, shamsi: settings.shamsi });
     if (mode === "top") scroller.scrollTop = 0;
     else if (mode === "now") scroller.scrollTop = Math.max(0, stripH + hoursOf(now) * hourPx() - scroller.clientHeight / 2);
     else scroller.scrollTop = keepTop;
   } else if (view === "month") {
-    renderMonth({ anchor, events: shown, tasks, colorOf, now, onPick: (d) => setView("day", d) });
+    renderMonth({ anchor, events: shown, tasks, colorOf, now, shamsi: settings.shamsi, onPick: (d) => setView("day", d) });
   } else {
     rows = buildRows(shown, tasks, dismissed, now, colorOf, "#a2cffe");
     cursor = Math.max(0, Math.min(cursor, rows.length - 1));
@@ -341,13 +352,31 @@ const form = initForm({
   onCreated: () => void load("keep"),
 });
 
+const settingsPanel = createSettings({
+  get: () => settings,
+  set: (patch) => {
+    settings = { ...settings, ...patch };
+    saveSettings(settings);
+    render("keep");
+  },
+  sidebar: () => sidebarShown,
+  toggleSidebar: () => {
+    sidebarShown = !sidebarShown;
+    saveSidebarShown(sidebarShown);
+    render("keep");
+  },
+});
+
 const help = createHelp(() => (form.isOpen() ? "form" : picker.isOpen() ? "calendars" : view));
 
 // Ctrl+/ (or Ctrl+?) toggles the help; Esc closes it first. Capture phase so it works inside inputs too.
 document.addEventListener(
   "keydown",
   (e) => {
-    if (e.ctrlKey && (e.key === "/" || e.key === "?")) help.toggle();
+    if (e.ctrlKey && (e.key === "i" || e.key === "I")) {
+      if (form.isOpen() || picker.isOpen() || signin.isOpen()) return;
+      settingsPanel.toggle();
+    } else if (e.ctrlKey && (e.key === "/" || e.key === "?")) help.toggle();
     else if (help.isOpen() && e.key === "Escape") help.close();
     else return;
     e.preventDefault();
@@ -357,7 +386,7 @@ document.addEventListener(
 );
 
 document.addEventListener("keydown", (e) => {
-  if (form.isOpen() || picker.isOpen() || signin.isOpen() || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (form.isOpen() || picker.isOpen() || signin.isOpen() || settingsPanel.isOpen() || e.ctrlKey || e.metaKey || e.altKey) return;
   const t = e.target as HTMLElement | null;
   if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
   const scrollable = view === "week" || view === "day";

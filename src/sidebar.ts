@@ -1,5 +1,6 @@
 import type { Calendar } from "./types";
 import { addDays, monthName, sameDay, startOfDay } from "./dates";
+import { jalaliMonthLabel, jalaliOf } from "./jalali";
 import { $, el } from "./ui";
 
 export interface SideCtx {
@@ -10,6 +11,7 @@ export interface SideCtx {
   /** The month the mini calendar shows (browsable on its own). */
   mini: Date;
   now: Date;
+  shamsi: boolean;
   calendars: Calendar[];
   hidden: Set<string>;
   collapsed: Set<string>;
@@ -57,7 +59,12 @@ export function renderSidebar(ctx: SideCtx): void {
   next.title = "Next month";
   prev.addEventListener("click", () => ctx.onMiniStep(-1));
   next.addEventListener("click", () => ctx.onMiniStep(1));
-  head.append(el("b", "", `${monthName(ctx.mini.getMonth())} ${ctx.mini.getFullYear()}`), prev, next);
+  const title = el("b", "", `${monthName(ctx.mini.getMonth())} ${ctx.mini.getFullYear()}`);
+  if (ctx.shamsi) {
+    const last = new Date(ctx.mini.getFullYear(), ctx.mini.getMonth() + 1, 0);
+    title.append(el("small", "", jalaliMonthLabel(ctx.mini, last)));
+  }
+  head.append(title, prev, next);
 
   const grid = el("div", "mini");
   for (const d of ["S", "M", "T", "W", "T", "F", "S"]) grid.append(el("div", "dow", d));
@@ -72,6 +79,7 @@ export function renderSidebar(ctx: SideCtx): void {
     else if (ctx.view !== "list" && ctx.view !== "month" && sameDay(d, aDay)) cls += " sel";
     const cell = el("div", cls);
     cell.append(el("span", "", String(d.getDate())));
+    if (ctx.shamsi) cell.append(el("sup", "", String(jalaliOf(d)[2])));
     cell.addEventListener("click", () => ctx.onPickDate(d));
     grid.append(cell);
   }
