@@ -53,10 +53,14 @@ If Google is blocked on your network, turn your VPN on. The header shows why a s
 
 | View | Key | Notes |
 | --- | --- | --- |
-| Week | (default) | `h`/`l` week, `t` today, `j`/`k` scroll, `J`/`K` bottom/top |
-| Day | `d` | `h`/`l` day; `d` again returns to the week |
+| Week | `w` (default) | `h`/`l` week, `t` today, `j`/`k` scroll, `J`/`K` bottom/top, `-`/`=` zoom, `0` reset zoom |
+| Day | `d` | `h`/`l` day; `w` or `d` again returns to the week |
 | Month | `m` | `h`/`l` month, Shamsi day numbers, task priority balls, click a day to open it |
-| List | `v` | `j`/`k` move, `Space` select, `x`/`d` dismiss, `u` undo, `Enter` open in Google Calendar |
+| List | `s` | `j`/`k` move, `Space` select, `x`/`d` dismiss, `u` undo, `Enter` open in Google Calendar |
+
+`v` opens the calendar picker: every calendar with its color, and you choose which ones are shown
+(`Space` toggles, `a` shows all). The left sidebar (`b` hides it) has a small month calendar, a
+booking-pages section, and "My calendars" with a checkbox per calendar.
 
 `a` adds an event (with calendar picker, repeat rules and a saved draft), `r` refreshes, and
 `Ctrl+/` shows the shortcuts for the current screen. Pending [Taskwarrior](https://taskwarrior.org)

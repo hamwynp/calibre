@@ -22,3 +22,44 @@ export function saveDismissed(s: Set<string>): void {
     /* ignore */
   }
 }
+
+const HIDDEN_KEY = "calibre.hiddenCalendars";
+const COLLAPSED_KEY = "calibre.sideCollapsed";
+const SIDE_KEY = "calibre.sidebar";
+
+function loadSet(key: string): Set<string> {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(key) ?? "[]") as string[]);
+  } catch {
+    return new Set();
+  }
+}
+function saveSet(key: string, s: Set<string>): void {
+  try {
+    localStorage.setItem(key, JSON.stringify([...s]));
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Calendars the user switched off (their events are hidden everywhere). */
+export const loadHiddenCalendars = (): Set<string> => loadSet(HIDDEN_KEY);
+export const saveHiddenCalendars = (s: Set<string>): void => saveSet(HIDDEN_KEY, s);
+/** Sidebar sections that are folded. */
+export const loadCollapsed = (): Set<string> => loadSet(COLLAPSED_KEY);
+export const saveCollapsed = (s: Set<string>): void => saveSet(COLLAPSED_KEY, s);
+
+export function loadSidebarShown(): boolean {
+  try {
+    return localStorage.getItem(SIDE_KEY) !== "0";
+  } catch {
+    return true;
+  }
+}
+export function saveSidebarShown(v: boolean): void {
+  try {
+    localStorage.setItem(SIDE_KEY, v ? "1" : "0");
+  } catch {
+    /* ignore */
+  }
+}

@@ -34,6 +34,19 @@ export function stepZoom(dir: 1 | -1): boolean {
   return true;
 }
 
+/** Back to the default zoom; returns false when already there. */
+export function resetZoom(): boolean {
+  const n = ZOOM_LEVELS.indexOf(DEFAULT_PX);
+  if (n === zoomIdx) return false;
+  zoomIdx = n;
+  try {
+    localStorage.setItem(ZOOM_KEY, String(DEFAULT_PX));
+  } catch {
+    /* ignore */
+  }
+  return true;
+}
+
 let lastStripH = 0;
 /** Height (px) of the all-day strip in the last render. */
 export const stripHeight = (): number => lastStripH;

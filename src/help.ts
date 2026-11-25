@@ -1,4 +1,4 @@
-export type HelpContext = "week" | "day" | "month" | "list" | "form";
+export type HelpContext = "week" | "day" | "month" | "list" | "form" | "calendars";
 
 type Row = [keys: string, what: string];
 interface Section {
@@ -7,6 +7,8 @@ interface Section {
 }
 
 const COMMON: Row[] = [
+  ["v", "Choose which calendars to show"],
+  ["b", "Show / hide the sidebar"],
   ["a", "Add an event"],
   ["r", "Refresh from Google"],
   ["Ctrl+/", "Show / hide this help"],
@@ -19,15 +21,16 @@ const HELP: Record<HelpContext, Section[]> = {
       rows: [
         ["h \u00b7 \u2190", "Previous week"],
         ["l \u00b7 \u2192", "Next week"],
-        ["t \u00b7 0", "Jump to today"],
+        ["t", "Jump to today"],
         ["j \u00b7 \u2193", "Scroll down"],
         ["k \u00b7 \u2191", "Scroll up"],
         ["J", "Scroll to the bottom"],
         ["K", "Scroll to the top (all-day items)"],
         ["- \u00b7 =", "Zoom out / in"],
+        ["0", "Reset zoom"],
         ["d", "Day view"],
         ["m", "Month view"],
-        ["v", "List view"],
+        ["s", "List (schedule) view"],
         ...COMMON,
       ],
     },
@@ -38,13 +41,14 @@ const HELP: Record<HelpContext, Section[]> = {
       rows: [
         ["h \u00b7 \u2190", "Previous day"],
         ["l \u00b7 \u2192", "Next day"],
-        ["t \u00b7 0", "Jump to today"],
+        ["t", "Jump to today"],
         ["j k \u00b7 \u2193 \u2191", "Scroll"],
         ["J \u00b7 K", "Bottom / top (all-day items)"],
         ["- \u00b7 =", "Zoom out / in"],
-        ["d", "Back to the week"],
+        ["0", "Reset zoom"],
+        ["w \u00b7 d", "Week view"],
         ["m", "Month view"],
-        ["v", "List view"],
+        ["s", "List (schedule) view"],
         ...COMMON,
       ],
     },
@@ -57,8 +61,8 @@ const HELP: Record<HelpContext, Section[]> = {
         ["l \u00b7 \u2192", "Next month"],
         ["t \u00b7 0", "Current month"],
         ["d", "Day view"],
-        ["m", "Back to the week"],
-        ["v", "List view"],
+        ["w \u00b7 m", "Week view"],
+        ["s", "List (schedule) view"],
         ["Click", "Open that day"],
         ...COMMON,
       ],
@@ -73,9 +77,21 @@ const HELP: Record<HelpContext, Section[]> = {
         ["x \u00b7 d", "Dismiss selected / current"],
         ["u", "Undo dismiss"],
         ["Enter", "Open in Google Calendar"],
-        ["v", "Back to the week"],
+        ["w \u00b7 s", "Week view"],
         ["m", "Month view"],
         ...COMMON,
+      ],
+    },
+  ],
+  calendars: [
+    {
+      title: "Calendars",
+      rows: [
+        ["j k \u00b7 \u2193 \u2191", "Move"],
+        ["Space \u00b7 Enter", "Show / hide the calendar"],
+        ["a", "Show all calendars"],
+        ["Esc \u00b7 v", "Close"],
+        ["Ctrl+/", "Show / hide this help"],
       ],
     },
   ],

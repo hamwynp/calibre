@@ -8,6 +8,8 @@
     <script type="module" src="/src/main.ts" defer></script>
   </head>
   <body>
+    <div id="shell">
+    <aside class="side" id="side"></aside>
     <div id="app">
       <header class="top">
         <h1 id="title"></h1>
@@ -21,6 +23,14 @@
       <div class="scroll" id="scroll"><div class="inner" id="inner"></div></div>
       <div class="monthview" id="monthview" hidden></div>
       <div class="listview" id="listview" hidden></div>
+    </div>
+    </div>
+
+    <div class="overlay" id="picker" hidden tabindex="-1">
+      <div class="card picker">
+        <h2>Calendars</h2>
+        <div id="picker-list"></div>
+      </div>
     </div>
 
     <div class="overlay" id="overlay" hidden>

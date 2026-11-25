@@ -2,14 +2,16 @@ import "./styles.css";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { CalEvent, Calendar, CalendarProvider, Task } from "./types";
 import { addDays, hoursOf, mondayOf, monthName, startOfDay, weekTitle, DAYS, sameDay } from "./dates";
-import { hourPx, renderGrid, stepZoom, stripHeight } from "./grid";
+import { hourPx, renderGrid, resetZoom, stepZoom, stripHeight } from "./grid";
+import { renderSidebar } from "./sidebar";
+import { createPicker } from "./picker";
 import { monthCells, renderMonth } from "./month";
 import { buildRows, renderList, type ListRow } from "./list";
 import { DemoProvider } from "./demo";
 import { GoogleProvider } from "./google";
 import { inTauri, loadTasks } from "./tasks";
 import { jalaliMonthLabel } from "./jalali";
-import { loadDismissed, saveDismissed } from "./store";
+import { loadCollapsed, loadDismissed, loadHiddenCalendars, loadSidebarShown, saveCollapsed, saveDismissed, saveHiddenCalendars, saveSidebarShown } from "./store";
 import { initForm } from "./form";
 import { createHelp } from "./help";
 import { $ } from "./ui";
@@ -32,6 +34,13 @@ let undoStack: string[][] = [];
 let cursor = 0;
 let selected = new Set<string>();
 let rows: ListRow[] = [];
+
+// which calendars are shown, sidebar state
+let hidden = loadHiddenCalendars();
+let collapsed = loadCollapsed();
+let sidebarShown = loadSidebarShown();
+let miniMonth = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+let lastAnchorMonth = `${anchor.getFullYear()}-${anchor.getMonth()}`;
 
 const scroller = $<HTMLDivElement>("scroll");
 const colorOf = (ev: CalEvent): string => calendars.find((c) => c.id === ev.calendarId)?.color ?? "#8b93a7";
@@ -84,6 +93,7 @@ type ScrollMode = "keep" | "top" | "now";
 
 function render(mode: ScrollMode): void {
   const now = new Date();
+  const shown = events.filter((e) => !hidden.has(e.calendarId));
   const grid = view === "week" || view === "day";
   $("dayhead").hidden = !grid;
   scroller.hidden = !grid;
@@ -97,17 +107,48 @@ function render(mode: ScrollMode): void {
   pill.textContent = off;
   $("sync").textContent = syncing > 0 ? "Syncing…" : "";
 
+  // sidebar: the mini calendar follows the main view's month unless you browsed it yourself
+  const am = `${anchor.getFullYear()}-${anchor.getMonth()}`;
+  if (am !== lastAnchorMonth) {
+    lastAnchorMonth = am;
+    miniMonth = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+  }
+  $("side").hidden = !sidebarShown;
+  if (sidebarShown)
+    renderSidebar({
+      anchor,
+      view,
+      mini: miniMonth,
+      now,
+      calendars,
+      hidden,
+      collapsed,
+      onPickDate: pickDate,
+      onMiniStep: (d) => {
+        miniMonth = new Date(miniMonth.getFullYear(), miniMonth.getMonth() + d, 1);
+        render("keep");
+      },
+      onToggleCalendar: toggleCalendar,
+      onToggleSection: (name) => {
+        if (collapsed.has(name)) collapsed.delete(name);
+        else collapsed.add(name);
+        saveCollapsed(collapsed);
+        render("keep");
+      },
+    });
+  picker.refresh();
+
   if (grid) {
     const keepTop = scroller.scrollTop;
     const days = view === "week" ? weekDays() : [anchor];
-    const stripH = renderGrid({ days, events, tasks, colorOf, now });
+    const stripH = renderGrid({ days, events: shown, tasks, colorOf, now });
     if (mode === "top") scroller.scrollTop = 0;
     else if (mode === "now") scroller.scrollTop = Math.max(0, stripH + hoursOf(now) * hourPx() - scroller.clientHeight / 2);
     else scroller.scrollTop = keepTop;
   } else if (view === "month") {
-    renderMonth({ anchor, events, tasks, colorOf, now, onPick: (d) => setView("day", d) });
+    renderMonth({ anchor, events: shown, tasks, colorOf, now, onPick: (d) => setView("day", d) });
   } else {
-    rows = buildRows(events, tasks, dismissed, now, colorOf, "#a2cffe");
+    rows = buildRows(shown, tasks, dismissed, now, colorOf, "#a2cffe");
     cursor = Math.max(0, Math.min(cursor, rows.length - 1));
     renderList({ rows, cursor, selected, tasks, now, onClick: (i) => ((cursor = i), render("keep")) });
   }
@@ -171,12 +212,27 @@ function setView(v: View, date?: Date): void {
   void load(modeForNav());
 }
 
+// ---------- calendars shown / sidebar ----------
+function toggleCalendar(id: string): void {
+  if (hidden.has(id)) hidden.delete(id);
+  else hidden.add(id);
+  saveHiddenCalendars(hidden);
+  render("keep");
+}
+
+/** A day was clicked in the mini calendar: show it in the current view (list -> week). */
+function pickDate(d: Date): void {
+  anchor = startOfDay(d);
+  if (view === "list") view = "week";
+  void load(modeForNav());
+}
+
 // ---------- zoom (week / day) ----------
 /** Zoom the time grid, keeping the hour at the middle of the view where it is. */
-function zoom(dir: 1 | -1): void {
+function zoom(dir: 1 | -1 | 0): void {
   if (view !== "week" && view !== "day") return;
   const centerHour = (scroller.scrollTop + scroller.clientHeight / 2 - stripHeight()) / hourPx();
-  if (!stepZoom(dir)) return;
+  if (!(dir === 0 ? resetZoom() : stepZoom(dir))) return;
   render("keep");
   scroller.scrollTop = Math.max(0, stripHeight() + centerHour * hourPx() - scroller.clientHeight / 2);
 }
@@ -217,7 +273,18 @@ function toggleSelect(): void {
   render("keep");
 }
 
-// ---------- form + help ----------
+// ---------- calendar picker (v), form, help ----------
+const picker = createPicker({
+  calendars: () => calendars,
+  hidden: () => hidden,
+  onToggle: toggleCalendar,
+  onShowAll: () => {
+    hidden = new Set();
+    saveHiddenCalendars(hidden);
+    render("keep");
+  },
+});
+
 const form = initForm({
   provider,
   calendars: () => calendars.filter((c) => c.writable),
@@ -228,7 +295,7 @@ const form = initForm({
   onCreated: () => void load("keep"),
 });
 
-const help = createHelp(() => (form.isOpen() ? "form" : view));
+const help = createHelp(() => (form.isOpen() ? "form" : picker.isOpen() ? "calendars" : view));
 
 // Ctrl+/ (or Ctrl+?) toggles the help; Esc closes it first. Capture phase so it works inside inputs too.
 document.addEventListener(
@@ -244,14 +311,15 @@ document.addEventListener(
 );
 
 document.addEventListener("keydown", (e) => {
-  if (form.isOpen() || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (form.isOpen() || picker.isOpen() || e.ctrlKey || e.metaKey || e.altKey) return;
   const t = e.target as HTMLElement | null;
   if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
   const scrollable = view === "week" || view === "day";
   switch (e.key) {
     case "h": case "ArrowLeft": step(-1); break;
     case "l": case "ArrowRight": step(1); break;
-    case "t": case "0": goToday(); break;
+    case "t": goToday(); break;
+    case "0": if (scrollable) zoom(0); else goToday(); break;
     case "j": case "ArrowDown":
       if (view === "list") (cursor = Math.min(rows.length - 1, cursor + 1), render("keep"));
       else if (scrollable) scroller.scrollBy({ top: 60 });
@@ -273,7 +341,10 @@ document.addEventListener("keydown", (e) => {
       else setView(view === "day" ? "week" : "day");
       break;
     case "m": setView(view === "month" ? "week" : "month"); break;
-    case "v": setView(view === "list" ? "week" : "list"); break;
+    case "w": setView("week"); break;
+    case "s": setView(view === "list" ? "week" : "list"); break;
+    case "v": picker.open(); break;
+    case "b": sidebarShown = !sidebarShown; saveSidebarShown(sidebarShown); render("keep"); break;
     case "a": form.open(); break;
     case "r": void refreshAll(); break;
     default: return;
