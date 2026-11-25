@@ -5,7 +5,7 @@ import { $, el } from "./ui";
 export interface SideCtx {
   /** The date the main view is showing. */
   anchor: Date;
-  /** "week" highlights the whole week row, "day" a single day. */
+  /** Which main view is showing (the selected-day circle is hidden for month and list). */
   view: "week" | "day" | "month" | "list";
   /** The month the mini calendar shows (browsable on its own). */
   mini: Date;
@@ -39,7 +39,7 @@ function sectionHead(ctx: SideCtx, name: string, label: string): HTMLElement {
   return h;
 }
 
-/** Left strip: small month calendar, booking pages, and "My calendars" with what's shown. */
+/** Left strip: small month calendar and "My calendars" with what's shown. */
 export function renderSidebar(ctx: SideCtx): void {
   const root = $<HTMLElement>("side");
 
@@ -58,13 +58,10 @@ export function renderSidebar(ctx: SideCtx): void {
   const first = new Date(ctx.mini.getFullYear(), ctx.mini.getMonth(), 1);
   const start = addDays(first, -first.getDay());
   const aDay = startOfDay(ctx.anchor);
-  const weekStart = addDays(aDay, -aDay.getDay());
   for (let i = 0; i < 42; i++) {
     const d = addDays(start, i);
-    const inWeek = ctx.view === "week" && d >= weekStart && d < addDays(weekStart, 7);
     let cls = "d";
     if (d.getMonth() !== ctx.mini.getMonth()) cls += " out";
-    if (inWeek) cls += " inweek" + (d.getDay() === 0 ? " wl" : "") + (d.getDay() === 6 ? " wr" : "");
     if (sameDay(d, ctx.now)) cls += " today";
     else if (ctx.view !== "list" && ctx.view !== "month" && sameDay(d, aDay)) cls += " sel";
     const cell = el("div", cls);
@@ -74,15 +71,6 @@ export function renderSidebar(ctx: SideCtx): void {
   }
   const mini = el("div");
   mini.append(head, grid);
-
-  // ---- booking pages ----
-  const booking = el("div");
-  booking.append(sectionHead(ctx, "booking", "Booking pages"));
-  if (!ctx.collapsed.has("booking")) {
-    const body = el("div", "sec-body");
-    body.append(el("div", "sec-note", "Google doesn't share booking pages with other apps yet."));
-    booking.append(body);
-  }
 
   // ---- my calendars ----
   const mine = el("div");
@@ -101,5 +89,5 @@ export function renderSidebar(ctx: SideCtx): void {
     mine.append(body);
   }
 
-  root.replaceChildren(mini, booking, mine);
+  root.replaceChildren(mini, mine);
 }
