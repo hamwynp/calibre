@@ -197,6 +197,14 @@ export class GoogleProvider implements CalendarProvider {
         recurrence: rec ? toRRule(rec, patch.allDay) : null,
       },
     });
+    if (patch.calendarId !== ev.calendarId) {
+      try {
+        await invoke("google_move", { calendarId: ev.calendarId, eventId: whole ? src.series!.id : ev.eventId, destination: patch.calendarId });
+      } catch (e) {
+        if (this.win) await this.fetchWindow(this.win.from, this.win.to).catch(() => {});
+        throw new Error("Saved, but could not move it to the other calendar: " + (e instanceof Error ? e.message : String(e)));
+      }
+    }
     if (this.win) await this.fetchWindow(this.win.from, this.win.to);
   }
 }

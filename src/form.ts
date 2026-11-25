@@ -196,8 +196,8 @@ export function initForm(deps: FormDeps): { open: () => void; openEdit: (ev: Cal
   const persist = () => {
     if (!edit) saveDraft(draft);
   };
-  /** Calendars the form can pick from: all writable ones, or just the event's own when editing. */
-  const calList = (): Calendar[] => (edit ? deps.calendars().filter((c) => c.id === edit!.ev.calendarId) : deps.calendars());
+  /** Calendars the form can pick from (the writable ones; when editing, choosing another one moves the event). */
+  const calList = (): Calendar[] => deps.calendars();
   const KEEP = REPEAT_OPTIONS.length; // index of the "keep current rule" entry
 
   const cal = new Dropdown($("f-cal"), "f-cal", () => calList().map((c) => ({ label: c.name, color: c.color })), () => {});
@@ -275,7 +275,7 @@ export function initForm(deps: FormDeps): { open: () => void; openEdit: (ev: Cal
     fUntil.value = edit.initialUntil;
     scope.idx = 0;
     rep.idx = edit.initialRep;
-    cal.idx = 0;
+    cal.idx = Math.max(0, calList().findIndex((c) => c.id === ev.calendarId));
     fillTimes();
     showAll();
   }
@@ -321,6 +321,10 @@ export function initForm(deps: FormDeps): { open: () => void; openEdit: (ev: Cal
     const calendar = calList()[cal.idx];
     if (!calendar) return fail("No calendar to add to", cal.box);
 
+    if (edit && calendar.id !== edit.ev.calendarId && isSeries() && scope.idx === 0) {
+      return fail("A repeating event moves as a whole: set Change to \"All events in the series\"", scope.box);
+    }
+
     let recurrence: Recurrence | undefined;
     const opt = rep.idx < KEEP ? REPEAT_OPTIONS[rep.idx]?.rec : null;
     if (opt && !repRow.hidden) {
@@ -352,7 +356,7 @@ export function initForm(deps: FormDeps): { open: () => void; openEdit: (ev: Cal
         const e = edit;
         // only send a repeat rule when it was actually changed: re-sending would drop the series' skipped dates
         const changed = rep.idx !== e.initialRep || (rep.idx > 0 && rep.idx < KEEP && fUntil.value.trim() !== e.initialUntil);
-        const patch: EditPatch = { title, start, end, allDay, recurrence: changed && !oneOfSeries() && rep.idx < KEEP ? { rec: recurrence ?? null } : "keep" };
+        const patch: EditPatch = { title, calendarId: calendar.id, start, end, allDay, recurrence: changed && !oneOfSeries() && rep.idx < KEEP ? { rec: recurrence ?? null } : "keep" };
         setStatus("Saving...");
         await deps.provider.updateEvent(e.ev, e.src, patch, e.src.series && scope.idx === 1 ? "all" : "one");
       } else {

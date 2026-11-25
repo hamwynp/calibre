@@ -204,7 +204,7 @@ function render(mode: ScrollMode): void {
     else if (mode === "now") scroller.scrollTop = Math.max(0, stripH + hoursOf(now) * hourPx() - scroller.clientHeight / 2);
     else scroller.scrollTop = keepTop;
   } else if (view === "month") {
-    renderMonth({ anchor, events: shown, tasks, colorOf, now, shamsi: settings.shamsi, onPick: (d) => setView("day", d) });
+    renderMonth({ anchor, events: shown, tasks, colorOf, now, shamsi: settings.shamsi, onEventMenu: eventMenu, onPick: (d) => setView("day", d) });
   } else {
     rows = buildRows(shown, tasks, dismissed, now, colorOf, "#a2cffe");
     cursor = Math.max(0, Math.min(cursor, rows.length - 1));

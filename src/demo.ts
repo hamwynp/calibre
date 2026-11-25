@@ -133,9 +133,9 @@ export class DemoProvider implements CalendarProvider {
     if (src.series && scope === "one") {
       // detach this occurrence: skip it in the series and add it as its own event
       (base.exceptions ??= []).push(ev.start.getTime());
-      this.events.push({ id: "d" + Date.now() + Math.random().toString(36).slice(2, 6), title: patch.title, calendarId: base.calendarId, start: patch.start, end: patch.end, allDay: patch.allDay });
+      this.events.push({ id: "d" + Date.now() + Math.random().toString(36).slice(2, 6), title: patch.title, calendarId: patch.calendarId, start: patch.start, end: patch.end, allDay: patch.allDay });
     } else {
-      Object.assign(base, { title: patch.title, start: patch.start, end: patch.end, allDay: patch.allDay });
+      Object.assign(base, { title: patch.title, calendarId: patch.calendarId, start: patch.start, end: patch.end, allDay: patch.allDay });
       if (patch.recurrence !== "keep") {
         const rec = patch.recurrence.rec;
         if (rec) base.recurrence = rec;

@@ -483,6 +483,26 @@ pub async fn google_update(app: AppHandle, st: State<'_, GoogleState>, args: Upd
     Ok(())
 }
 
+/// Move an event (or a whole series, by its series id) to another calendar. Its id stays the same.
+#[tauri::command]
+pub async fn google_move(app: AppHandle, st: State<'_, GoogleState>, calendar_id: String, event_id: String, destination: String) -> Result<(), String> {
+    let token = access_token(&app, &st).await?;
+    let mut url = event_url(&calendar_id, &event_id)?;
+    url.path_segments_mut().map_err(|_| "bad url".to_string())?.push("move");
+    let resp = st
+        .client
+        .post(url)
+        .query(&[("destination", destination.as_str())])
+        .bearer_auth(&token)
+        .send()
+        .await
+        .map_err(friendly)?;
+    if !resp.status().is_success() {
+        return Err(api_error(resp).await);
+    }
+    Ok(())
+}
+
 // ---------------------------------------------------------------------------------------------
 // Sign-in (OAuth 2.0 for installed apps: loopback redirect + PKCE)
 // ---------------------------------------------------------------------------------------------

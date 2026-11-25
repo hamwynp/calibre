@@ -61,6 +61,8 @@ export type EditScope = "one" | "all";
 
 export interface EditPatch {
   title: string;
+  /** The calendar the event should be on (differs from its current one = move it). */
+  calendarId: string;
   start: Date;
   end: Date;
   allDay: boolean;

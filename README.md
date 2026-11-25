@@ -31,7 +31,7 @@ npm run tauri dev     # desktop app
 npm run dev           # just the UI in a browser (http://localhost:1420)
 ```
 
-Right-click an event (week, day or list view; or press `e` in the list) to edit it: title, date, time, length and how often it repeats. For a repeating event you choose whether the change is for just that one or the whole series. New events always start as "Does not repeat" on the calendar you last added to.
+Right-click an event (week, day, month or list view; or press `e` in the list) to edit it: title, date, time, length, calendar and how often it repeats. Picking another calendar moves the event (a repeating event moves as a whole). For a repeating event you choose whether the change is for just that one or the whole series. New events always start as "Does not repeat" on the calendar you last added to.
 
 Press `Ctrl+/` in the app for the keyboard shortcuts of the current screen, and `Ctrl+I` for settings (Shamsi dates on/off, sidebar).
 
@@ -57,7 +57,7 @@ If Google is blocked on your network, turn your VPN on. The header shows why a s
 | --- | --- | --- |
 | Week | `w` (default) | `h`/`l` week, `t` today, `j`/`k` scroll, `J`/`K` bottom/top, `-`/`=` zoom, `0` reset zoom |
 | Day | `d` | `h`/`l` day; `w` or `d` again returns to the week |
-| Month | `m` | `h`/`l` month, Shamsi day numbers, task priority balls, click a day to open it |
+| Month | `m` | `h`/`l` month, event chips with their times ("+N more" when a day is full), Shamsi day numbers, task priority balls, click a day to open it, right-click an event to edit it |
 | List | `s` | `j`/`k` move, `Space` select, `x`/`d` dismiss, `u` undo, `Enter` open in Google Calendar |
 
 `v` opens the calendar picker: every calendar with its color, and you choose which ones are shown
