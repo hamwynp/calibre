@@ -509,7 +509,8 @@ document.addEventListener("keydown", (e) => {
     }
     case "u": if (view === "list") undoDismiss(); break;
     case "Enter": if (view === "list") openRowInGoogle(); break;
-    case "Tab": if (view === "list") return; moveCursor(e.shiftKey ? -1 : 1); break;
+    // some GTK webviews report Shift+Tab as "ISO_Left_Tab" (and may not set shiftKey for it)
+    case "Tab": case "ISO_Left_Tab": if (view === "list") return; moveCursor(e.shiftKey || e.key === "ISO_Left_Tab" ? -1 : 1); break;
     case "Escape": if (!kcur) return; kcur = null; render("keep"); break;
     case "e": { const ev = cursorEvent(); if (ev) void startEdit(ev); break; }
     case "y": { const ev = cursorEvent(); if (ev) void startDuplicate(ev); break; }

@@ -209,10 +209,11 @@ kbd { font: 600 10.5px/1 ui-monospace, "SF Mono", "JetBrains Mono", monospace; b
 .ctxmenu button:disabled { color: var(--sub); cursor: default; }
 .ev:not(.tk), .chip.evt { cursor: context-menu; }
 
-/* keyboard cursor (Tab) */
-.kcur { outline: 2px solid var(--accent); outline-offset: 1px; box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 22%, transparent); position: relative; z-index: 2; }
+/* keyboard cursor (Tab): thick ring, glow and a brighter fill so it can't be missed */
+.kcur { outline: 3px solid var(--accent); outline-offset: 2px; box-shadow: 0 0 0 2px var(--bg), 0 0 16px 5px color-mix(in srgb, var(--accent) 60%, transparent); filter: brightness(1.3) saturate(1.2); position: relative; z-index: 2; animation: kpop 0.14s ease-out; }
 .ev.kcur { z-index: 3; }
-.mev.kcur { overflow: visible; }
+.mev.kcur { overflow: visible; font-weight: 700; outline-width: 2px; outline-offset: 0; box-shadow: 0 0 7px 1px color-mix(in srgb, var(--accent) 70%, transparent); animation: none; }
+@keyframes kpop { from { outline-offset: 6px; } to { outline-offset: 2px; } }
 
 /* delete confirmation */
 .card.confirm { width: 360px; }
